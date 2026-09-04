@@ -1,0 +1,6 @@
+{
+  "name": "NoteBridge",
+  "description": "A peer-to-peer academic notes marketplace for Indian college students. Buy and sell syllabus-aligned notes with UPI payments and watermarked PDFs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,163 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "Student or Senior Seller user profile in NoteBridge",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 150 },
+        "email": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "college": { "type": "string", "maxLength": 200 },
+        "university": { "type": "string", "maxLength": 200 },
+        "degree": { "type": "string", "maxLength": 100 },
+        "branch": { "type": "string", "maxLength": 100 },
+        "semester": { "type": "number" },
+        "role": { "type": "string", "enum": ["buyer", "seller", "admin"] },
+        "avatarUrl": { "type": "string", "maxLength": 500 },
+        "isVerifiedSenior": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "totalRatingsCount": { "type": "number" },
+        "walletBalance": { "type": "number" },
+        "totalEarnings": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "note": {
+      "title": "NoteItem",
+      "description": "Academic study note listing in NoteBridge",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "subject": { "type": "string", "maxLength": 150 },
+        "university": { "type": "string", "maxLength": 200 },
+        "collegeName": { "type": "string", "maxLength": 200 },
+        "degree": { "type": "string", "maxLength": 100 },
+        "branch": { "type": "string", "maxLength": 100 },
+        "semester": { "type": "number" },
+        "unitsCovered": { "type": "string", "maxLength": 200 },
+        "academicYear": { "type": "string", "maxLength": 50 },
+        "price": { "type": "number" },
+        "sellerId": { "type": "string", "maxLength": 128 },
+        "sellerName": { "type": "string", "maxLength": 150 },
+        "sellerCollege": { "type": "string", "maxLength": 200 },
+        "sellerYear": { "type": "string", "maxLength": 100 },
+        "totalPages": { "type": "number" },
+        "fileSizeMb": { "type": "number" },
+        "status": { "type": "string", "enum": ["approved", "pending", "rejected", "changes_requested"] },
+        "salesCount": { "type": "number" },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" },
+        "hasPYQ": { "type": "boolean" },
+        "hasHandwrittenFormulas": { "type": "boolean" },
+        "textContent": { "type": "string", "maxLength": 20000 },
+        "aiSynopsis": { "type": "string", "maxLength": 5000 },
+        "aiSynopsisGeneratedAt": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "title", "subject", "university", "price", "sellerId", "sellerName", "status"]
+    },
+    "order": {
+      "title": "PurchaseOrder",
+      "description": "UPI order placed by student for notes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "orderNumber": { "type": "string", "maxLength": 50 },
+        "noteId": { "type": "string", "maxLength": 128 },
+        "noteTitle": { "type": "string", "maxLength": 200 },
+        "subject": { "type": "string", "maxLength": 150 },
+        "sellerId": { "type": "string", "maxLength": 128 },
+        "sellerName": { "type": "string", "maxLength": 150 },
+        "buyerId": { "type": "string", "maxLength": 128 },
+        "buyerName": { "type": "string", "maxLength": 150 },
+        "buyerEmail": { "type": "string", "maxLength": 150 },
+        "amount": { "type": "number" },
+        "sellerShare": { "type": "number" },
+        "platformShare": { "type": "number" },
+        "upiTransactionId": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["completed", "pending_verification", "rejected", "failed", "refunded"] },
+        "purchasedAt": { "type": "string", "maxLength": 50 },
+        "watermarkText": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["id", "noteId", "sellerId", "buyerId", "amount", "status"]
+    },
+    "withdrawal": {
+      "title": "WithdrawalRequest",
+      "description": "Seller payout request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "sellerId": { "type": "string", "maxLength": 128 },
+        "sellerName": { "type": "string", "maxLength": 150 },
+        "amount": { "type": "number" },
+        "upiId": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["processing", "completed", "rejected"] },
+        "requestedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "sellerId", "amount", "upiId", "status"]
+    },
+    "studySpace": {
+      "title": "StudySpace",
+      "description": "Google Chat connected study space for course discussions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "spaceName": { "type": "string", "maxLength": 200 },
+        "displayName": { "type": "string", "maxLength": 200 },
+        "subject": { "type": "string", "maxLength": 150 },
+        "university": { "type": "string", "maxLength": 200 },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdByName": { "type": "string", "maxLength": 150 },
+        "memberCount": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "displayName", "subject", "createdBy"]
+    },
+    "driveBackup": {
+      "title": "DriveBackup",
+      "description": "Google Drive synchronized study pack export record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "noteId": { "type": "string", "maxLength": 128 },
+        "noteTitle": { "type": "string", "maxLength": 200 },
+        "driveFileId": { "type": "string", "maxLength": 200 },
+        "driveFileUrl": { "type": "string", "maxLength": 500 },
+        "syncedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "userId", "noteId", "driveFileId", "syncedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profiles and student identity credentials"
+    },
+    "/notes/{noteId}": {
+      "schema": "note",
+      "description": "Peer-to-peer study notes catalog listings"
+    },
+    "/orders/{orderId}": {
+      "schema": "order",
+      "description": "Verified UPI purchase transactions"
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": "withdrawal",
+      "description": "Senior seller revenue withdrawal requests"
+    },
+    "/studySpaces/{spaceId}": {
+      "schema": "studySpace",
+      "description": "Google Chat collaborative study spaces for enrolled courses"
+    },
+    "/driveBackups/{backupId}": {
+      "schema": "driveBackup",
+      "description": "Exported study packs and watermarked notes saved to Google Drive"
+    }
+  }
+}
