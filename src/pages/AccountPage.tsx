@@ -28,19 +28,12 @@ import {
   Award,
   KeyRound,
   FileCheck,
-  Trash2,
-  AlertTriangle,
 } from 'lucide-react';
 import {
   updateUserProfileDetails,
   submitSellerApplication,
   BUSINESS_RULES,
-  saveUsers,
-  getStoredUsers,
-  deleteCurrentUserAccount,
 } from '../utils/storage';
-import { EmailOtpVerificationModal } from '../components/EmailOtpVerificationModal';
-import { DeleteAccountModal } from '../components/DeleteAccountModal';
 
 interface AccountPageProps {
   currentUser: UserType | null;
@@ -53,7 +46,6 @@ interface AccountPageProps {
   onNavigate: (page: string, params?: any) => void;
   onLogout: () => void;
   onUpdateUser: (user: UserType) => void;
-  onDeleteAccount?: (reason?: string) => void;
 }
 
 export const AccountPage: React.FC<AccountPageProps> = ({
@@ -67,7 +59,6 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   onNavigate,
   onLogout,
   onUpdateUser,
-  onDeleteAccount,
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'wallet' | 'verification' | 'security'>('overview');
   const [isEditing, setIsEditing] = useState(false);
@@ -87,51 +78,6 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   // Seller Application state
   const [sellerIdPhotoUrl, setSellerIdPhotoUrl] = useState('');
   const [sellerApplyNotice, setSellerApplyNotice] = useState<string | null>(null);
-
-  // Email OTP Verification state
-  const [isEmailOtpModalOpen, setIsEmailOtpModalOpen] = useState(false);
-
-  // Account Deletion state
-  const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
-  const [deleteErrorNotice, setDeleteErrorNotice] = useState<string | null>(null);
-
-  const handleConfirmDeleteAccount = (reason: string) => {
-    const result = deleteCurrentUserAccount(reason);
-    if (result.success) {
-      setIsDeleteAccountModalOpen(false);
-      if (onDeleteAccount) {
-        onDeleteAccount(reason);
-      } else {
-        onLogout();
-        onNavigate('home');
-      }
-    } else {
-      setDeleteErrorNotice(result.error || 'Failed to delete account.');
-      setTimeout(() => setDeleteErrorNotice(null), 5000);
-    }
-  };
-
-  const handleEmailOtpVerified = () => {
-    if (!currentUser) return;
-    const users = getStoredUsers();
-    const updatedUsers = users.map((u) => {
-      if (u.id === currentUser.id) {
-        return { ...u, isVerified: true, isEmailVerified: true };
-      }
-      return u;
-    });
-    saveUsers(updatedUsers);
-
-    const updatedUser: UserType = {
-      ...currentUser,
-      isVerified: true,
-      isEmailVerified: true,
-    };
-    onUpdateUser(updatedUser);
-    setIsEmailOtpModalOpen(false);
-    setSaveSuccessNotice('🎉 Student Email successfully verified with 6-digit OTP!');
-    setTimeout(() => setSaveSuccessNotice(null), 4000);
-  };
 
   if (!currentUser) {
     return (
@@ -278,24 +224,10 @@ export const AccountPage: React.FC<AccountPageProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-300">
-                <div className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{currentUser.email}</span>
-                  {currentUser.isEmailVerified ? (
-                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full text-[10px] font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      Verified
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setIsEmailOtpModalOpen(true)}
-                      className="px-2 py-0.5 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-400/30 rounded-full text-[10px] font-bold flex items-center gap-1 transition"
-                    >
-                      <span>⚠️ Verify Email OTP</span>
-                    </button>
-                  )}
-                </div>
+                  {currentUser.email}
+                </span>
                 {currentUser.phone && (
                   <span className="flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 text-slate-400" />
@@ -771,27 +703,6 @@ export const AccountPage: React.FC<AccountPageProps> = ({
               </div>
             )}
           </form>
-
-          {/* Danger Zone in Profile Tab */}
-          <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-rose-50/60 p-5 rounded-2xl border border-rose-200/70">
-            <div>
-              <h4 className="text-xs font-bold text-rose-950 flex items-center gap-1.5">
-                <Trash2 className="w-4 h-4 text-rose-600" />
-                <span>Delete Account &amp; Student Profile</span>
-              </h4>
-              <p className="text-[11px] text-rose-700">
-                Permanently erase your account, uploads, and data from NoteBridge.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsDeleteAccountModalOpen(true)}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Account</span>
-            </button>
-          </div>
         </div>
       )}
 
@@ -1025,104 +936,22 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                   Local Key Encrypted &amp; Active
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500">Email Verification Status:</span>
-                {currentUser.isEmailVerified ? (
-                  <span className="text-emerald-600 font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Verified ({currentUser.email})
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsEmailOtpModalOpen(true)}
-                    className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
-                  >
-                    <span>Verify 6-Digit Email OTP</span>
-                  </button>
-                )}
-              </div>
             </div>
 
-            <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-5">
-              <div>
-                <span className="text-xs font-bold text-slate-800 block">
-                  Active Session Termination
-                </span>
-                <span className="text-xs text-slate-500">
-                  Ready to switch accounts or end your session on this device?
-                </span>
-              </div>
+            <div className="pt-4 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                Ready to switch accounts or end your session?
+              </span>
               <button
                 onClick={onLogout}
-                className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-2"
+                className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Log Out from Device</span>
               </button>
             </div>
-
-            {/* Danger Zone: Account Deletion */}
-            <div className="p-5 bg-rose-50/70 border border-rose-200/80 rounded-2xl space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-2.5 text-rose-950 font-heading">
-                  <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <Trash2 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-rose-950">
-                      Danger Zone: Delete Student Account
-                    </h4>
-                    <p className="text-xs text-rose-700">
-                      Permanently remove your profile, data, login credentials, and personal records from NoteBridge.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsDeleteAccountModalOpen(true)}
-                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-600/20 transition flex items-center gap-2 shrink-0 cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete Account</span>
-                </button>
-              </div>
-
-              {deleteErrorNotice && (
-                <div className="p-3 bg-rose-200/80 border border-rose-300 text-rose-950 text-xs font-semibold rounded-xl flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-700 shrink-0" />
-                  <span>{deleteErrorNotice}</span>
-                </div>
-              )}
-            </div>
           </div>
         </div>
-      )}
-
-      {/* Email OTP Verification Modal */}
-      {currentUser && (
-        <EmailOtpVerificationModal
-          isOpen={isEmailOtpModalOpen}
-          email={currentUser.email}
-          purpose="email_verification"
-          userName={currentUser.name}
-          title="Verify Registered Student Email"
-          subtitle="Enter the 6-digit verification code sent to your academic email to complete identity verification."
-          onVerified={handleEmailOtpVerified}
-          onClose={() => setIsEmailOtpModalOpen(false)}
-        />
-      )}
-
-      {/* Account Deletion Confirmation Modal */}
-      {currentUser && (
-        <DeleteAccountModal
-          isOpen={isDeleteAccountModalOpen}
-          user={currentUser}
-          onClose={() => setIsDeleteAccountModalOpen(false)}
-          onConfirmDelete={handleConfirmDeleteAccount}
-          onNavigateToWallet={() => setActiveTab('wallet')}
-        />
       )}
     </div>
   );

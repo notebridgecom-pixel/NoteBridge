@@ -10,7 +10,6 @@ const STORAGE_KEYS = {
   WITHDRAWALS: 'notebridge_withdrawals_v2',
   REPORTS: 'notebridge_reports_v2',
   DELETED_NOTES: 'notebridge_deleted_note_ids_v2',
-  DELETED_ORDERS: 'notebridge_deleted_order_ids_v2',
 };
 
 // --- Deleted Notes Registry (Tombstones) ---
@@ -39,34 +38,6 @@ export function recordDeletedNoteId(noteId: string): void {
 export function isNoteDeleted(noteId: string): boolean {
   if (!noteId) return false;
   return getDeletedNoteIds().has(noteId);
-}
-
-// --- Deleted Orders Registry (Tombstones) ---
-export function getDeletedOrderIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_ORDERS);
-    if (!raw) return new Set<string>();
-    const arr = JSON.parse(raw);
-    return new Set<string>(Array.isArray(arr) ? arr : []);
-  } catch {
-    return new Set<string>();
-  }
-}
-
-export function recordDeletedOrderId(orderId: string): void {
-  if (!orderId) return;
-  try {
-    const current = getDeletedOrderIds();
-    current.add(orderId);
-    localStorage.setItem(STORAGE_KEYS.DELETED_ORDERS, JSON.stringify(Array.from(current)));
-  } catch (e) {
-    console.error('Failed to record deleted order ID', e);
-  }
-}
-
-export function isOrderDeleted(orderId: string): boolean {
-  if (!orderId) return false;
-  return getDeletedOrderIds().has(orderId);
 }
 
 // --- In-Memory & IndexedDB File Persistence Subsystem ---
@@ -285,15 +256,6 @@ export function getStoredNotes(): NoteItem[] {
       });
     });
 
-    // Merge any newly introduced initial notes if not present and not explicitly deleted
-    INITIAL_NOTES.forEach((inote) => {
-      if (!seenIds.has(inote.id) && !deletedIds.has(inote.id)) {
-        cleanNotes.push(inote);
-        seenIds.add(inote.id);
-        hasModifiedIds = true;
-      }
-    });
-
     if (hasModifiedIds) {
       // Save without bulky base64 in localStorage
       const storageSafe = cleanNotes.map((n) => ({ ...n, pdfData: undefined }));
@@ -432,121 +394,23 @@ export function logoutUser(): void {
   }
 }
 
-export function markUserEmailVerified(emailOrId: string): User | null {
-  try {
-    const target = emailOrId.trim().toLowerCase();
-    const users = getStoredUsers();
-    let updatedUser: User | null = null;
-
-    const newUsers = users.map((u) => {
-      if (
-        (u?.id && u.id.toLowerCase() === target) ||
-        (u?.email && u.email.toLowerCase() === target)
-      ) {
-        const uUp: User = {
-          ...u,
-          isEmailVerified: true,
-          isVerified: true,
-        };
-        updatedUser = uUp;
-        return uUp;
-      }
-      return u;
-    });
-
-    saveUsers(newUsers);
-
-    const cur = getCurrentUser();
-    if (cur && (cur.id.toLowerCase() === target || (cur.email && cur.email.toLowerCase() === target))) {
-      const curUp: User = {
-        ...cur,
-        isEmailVerified: true,
-        isVerified: true,
-      };
-      setCurrentUser(curUp);
-      return curUp;
-    }
-
-    return updatedUser;
-  } catch (e) {
-    console.error('Failed to mark user email verified:', e);
-    return null;
-  }
-}
-
-export function updateUserEmail(userIdOrEmail: string, newEmail: string): User | null {
-  try {
-    const target = userIdOrEmail.trim().toLowerCase();
-    const cleanNewEmail = newEmail.trim().toLowerCase();
-    const users = getStoredUsers();
-    let updatedUser: User | null = null;
-
-    const newUsers = users.map((u) => {
-      if (
-        (u?.id && u.id.toLowerCase() === target) ||
-        (u?.email && u.email.toLowerCase() === target)
-      ) {
-        const uUp: User = {
-          ...u,
-          email: cleanNewEmail,
-          isEmailVerified: false, // Reset verification on email change
-          isVerified: false,
-        };
-        updatedUser = uUp;
-        return uUp;
-      }
-      return u;
-    });
-
-    saveUsers(newUsers);
-
-    const cur = getCurrentUser();
-    if (cur && (cur.id.toLowerCase() === target || (cur.email && cur.email.toLowerCase() === target))) {
-      const curUp: User = {
-        ...cur,
-        email: cleanNewEmail,
-        isEmailVerified: false,
-        isVerified: false,
-      };
-      setCurrentUser(curUp);
-      return curUp;
-    }
-
-    return updatedUser;
-  } catch (e) {
-    console.error('Failed to update user email:', e);
-    return null;
-  }
-}
-
 export function getStoredOrders(): PurchaseOrder[] {
   try {
-    const deletedOrderIds = getDeletedOrderIds();
     const raw = localStorage.getItem(STORAGE_KEYS.ORDERS);
     if (!raw) {
-      const cleanInit = INITIAL_ORDERS.filter(
-        (o) => !deletedOrderIds.has(o.id) && (!o.orderNumber || !deletedOrderIds.has(o.orderNumber))
-      );
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(cleanInit));
-      return cleanInit;
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(INITIAL_ORDERS));
+      return INITIAL_ORDERS;
     }
     const parsed: PurchaseOrder[] = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      const cleanInit = INITIAL_ORDERS.filter(
-        (o) => !deletedOrderIds.has(o.id) && (!o.orderNumber || !deletedOrderIds.has(o.orderNumber))
-      );
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(cleanInit));
-      return cleanInit;
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(INITIAL_ORDERS));
+      return INITIAL_ORDERS;
     }
     
-    // Deduplicate orders and filter out deleted ones
+    // Deduplicate orders
     const seen = new Set<string>();
     const cleanOrders: PurchaseOrder[] = [];
     parsed.forEach((o) => {
-      if (!o) return;
-      if (deletedOrderIds.has(o.id) || (o.orderNumber && deletedOrderIds.has(o.orderNumber))) {
-        return;
-      }
       const key = o.id || o.orderNumber;
       if (key && !seen.has(key)) {
         seen.add(key);
@@ -560,22 +424,14 @@ export function getStoredOrders(): PurchaseOrder[] {
     return cleanOrders;
   } catch (e) {
     console.error('Failed to load orders', e);
-    const deletedOrderIds = getDeletedOrderIds();
-    return INITIAL_ORDERS.filter(
-      (o) => !deletedOrderIds.has(o.id) && (!o.orderNumber || !deletedOrderIds.has(o.orderNumber))
-    );
+    return INITIAL_ORDERS;
   }
 }
 
 export function saveOrders(orders: PurchaseOrder[]): void {
   try {
-    const deletedOrderIds = getDeletedOrderIds();
     const seen = new Set<string>();
     const cleanOrders = orders.filter((o) => {
-      if (!o) return false;
-      if (deletedOrderIds.has(o.id) || (o.orderNumber && deletedOrderIds.has(o.orderNumber))) {
-        return false;
-      }
       const key = o.id || o.orderNumber;
       if (!key || seen.has(key)) return false;
       seen.add(key);
@@ -1204,7 +1060,7 @@ export function voteReviewHelpful(noteId: string, reviewId: string, voterId: str
 }
 
 /** Upload new note */
-export function createNewNoteListing(params: Omit<NoteItem, 'id' | 'createdAt' | 'status' | 'salesCount' | 'rating' | 'reviewsCount' | 'reviews'>): NoteItem {
+export function createNewNoteListing(params: Omit<NoteItem, 'id' | 'createdAt' | 'status' | 'salesCount' | 'rating' | 'reviewsCount' | 'reviews'> & { status?: NoteItem['status'] }): NoteItem {
   const notes = getStoredNotes();
   const noteId = `note-${Date.now()}`;
 
@@ -1217,7 +1073,7 @@ export function createNewNoteListing(params: Omit<NoteItem, 'id' | 'createdAt' |
   const newNote: NoteItem = {
     ...params,
     id: noteId,
-    status: 'approved', // Verified & published live for all buyers across mobile & desktop
+    status: params.status || 'pending', // Awaiting Academic Council syllabus & copyright review by Admin
     salesCount: 0,
     rating: 5.0,
     reviewsCount: 0,
@@ -1349,19 +1205,10 @@ export function deleteNote(noteId: string, performedBy = 'Raj Sambhaji Bhosale (
 /** Permanently delete an order record (e.g. test or spam orders) */
 export function deleteOrder(orderId: string, performedBy = 'Raj Sambhaji Bhosale (Admin)'): boolean {
   const orders = getStoredOrders();
-  const orderToDelete = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
-  if (!orderToDelete) {
-    recordDeletedOrderId(orderId);
-    return false;
-  }
+  const orderToDelete = orders.find((o) => o.id === orderId);
+  if (!orderToDelete) return false;
 
-  // Record tombstones for both id and orderNumber to prevent reappearance
-  recordDeletedOrderId(orderToDelete.id);
-  if (orderToDelete.orderNumber) {
-    recordDeletedOrderId(orderToDelete.orderNumber);
-  }
-
-  const filtered = orders.filter((o) => o.id !== orderToDelete.id && o.orderNumber !== orderToDelete.orderNumber);
+  const filtered = orders.filter((o) => o.id !== orderId);
   saveOrders(filtered);
 
   logSecurityEvent({
@@ -1370,11 +1217,11 @@ export function deleteOrder(orderId: string, performedBy = 'Raj Sambhaji Bhosale
     severity: 'warning',
     performedBy,
     targetType: 'order',
-    targetId: orderToDelete.id,
+    targetId: orderId,
     targetLabel: `Order #${orderToDelete.orderNumber}`,
     details: `Deleted order #${orderToDelete.orderNumber} (Amount: ₹${orderToDelete.amount}, Buyer: ${orderToDelete.buyerName}) from transaction ledger.`,
     metadata: {
-      orderId: orderToDelete.id,
+      orderId,
       orderNumber: orderToDelete.orderNumber,
       amount: `₹${orderToDelete.amount}`,
       buyerName: orderToDelete.buyerName,
@@ -1479,12 +1326,6 @@ export function deleteUser(userId: string, performedBy = 'Raj Sambhaji Bhosale (
   const filtered = users.filter((u) => u.id !== userId);
   saveUsers(filtered);
 
-  // If deleted user was active in session, clear session
-  const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-  if (currentId === userId) {
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
-  }
-
   logSecurityEvent({
     action: 'user_deleted',
     category: 'user_management',
@@ -1503,26 +1344,6 @@ export function deleteUser(userId: string, performedBy = 'Raj Sambhaji Bhosale (
   });
 
   return true;
-}
-
-/** User self-deletes their own account */
-export function deleteCurrentUserAccount(reason = 'User Request'): { success: boolean; error?: string } {
-  const cur = getCurrentUser();
-  if (!cur) {
-    return { success: false, error: 'No active session found.' };
-  }
-
-  if (cur.email.toLowerCase() === 'rajbhosaletkd@gmail.com') {
-    return { success: false, error: 'Master administrator account cannot be deleted for platform security.' };
-  }
-
-  const ok = deleteUser(cur.id, `${cur.name} (Self-Requested Deletion: ${reason})`);
-  if (ok) {
-    logoutUser();
-    return { success: true };
-  }
-
-  return { success: false, error: 'Failed to delete account. Please try again.' };
 }
 
 /** Delete / dismiss copyright report */

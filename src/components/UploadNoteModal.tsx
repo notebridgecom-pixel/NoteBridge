@@ -28,7 +28,8 @@ import {
   Layers,
   BookOpen,
   Bot,
-  RotateCw
+  RotateCw,
+  Clock
 } from 'lucide-react';
 
 interface UploadNoteModalProps {
@@ -251,6 +252,7 @@ export const UploadNoteModal: React.FC<UploadNoteModalProps> = ({
       const newListing = createNewNoteListing({
         title: title.trim(),
         description: description.trim() || `Comprehensive handwritten academic notes for ${finalSubject} covering ${finalUnits} strictly according to ${currentCollegeObj?.name || 'College'} syllabus.`,
+        status: 'pending', // Default status: all submissions routed to moderator queue
         subject: finalSubject,
         subjectId: availableSubjects.find((s) => s.name === finalSubject)?.id,
         university: currentCollegeObj?.affiliatedUniversity || 'Mumbai University (MU)',
@@ -311,6 +313,7 @@ export const UploadNoteModal: React.FC<UploadNoteModalProps> = ({
       });
 
       setIsSubmitting(false);
+      onClose();
       onSuccess(newListing);
     } catch (err: any) {
       console.error('Failed to submit listing:', err);
@@ -730,6 +733,14 @@ export const UploadNoteModal: React.FC<UploadNoteModalProps> = ({
             </label>
           </div>
 
+          {/* Moderation Review Notice */}
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2 text-slate-600 text-[11px]">
+            <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            <span>
+              All submissions are verified by our moderation team for original handwritten notes and syllabus alignment before publishing live to the public catalog.
+            </span>
+          </div>
+
           {/* Modal Actions */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
@@ -747,7 +758,7 @@ export const UploadNoteModal: React.FC<UploadNoteModalProps> = ({
               {isSubmitting ? (
                 <>
                   <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Publishing Listing...</span>
+                  <span>Submitting for Review...</span>
                 </>
               ) : (
                 <>

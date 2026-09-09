@@ -5,26 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NoteBridge — Study Smart. Earn Smart. | Academic Notes Marketplace</title>
     <meta name="description" content="Peer-to-peer academic notes marketplace for Indian college students. Buy syllabus-aligned notes from verified seniors or sell your original notes." />
-    <script>
-      (function() {
-        try {
-          var saved = localStorage.getItem('notebridge_theme');
-          var isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          if (isDark) {
-            document.documentElement.classList.add('dark');
-            document.documentElement.style.colorScheme = 'dark';
-          } else {
-            document.documentElement.classList.remove('dark');
-            document.documentElement.style.colorScheme = 'light';
-          }
-        } catch (e) {}
-      })();
-    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased font-sans selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-blue-900 dark:selection:text-blue-200 min-h-screen transition-colors duration-200">
+  <body class="bg-slate-50 text-slate-900 antialiased font-sans selection:bg-blue-100 selection:text-blue-900 min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

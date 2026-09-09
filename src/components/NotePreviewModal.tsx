@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { NoteItem, User, PurchaseOrder, AiDocumentSummaryResult } from '../types';
+import { NoteItem, User, PurchaseOrder } from '../types';
 import { downloadWatermarkedPdf, getNoteRenderablePdfUrl } from '../utils/pdfGenerator';
-import { generateDocumentSummary } from '../utils/aiDocumentSummarizerService';
 import { DocumentCanvasViewer } from './DocumentCanvasViewer';
-import { AiDocumentSummaryViewer } from './AiDocumentSummaryViewer';
 import { 
   X, 
   Lock, 
@@ -11,11 +9,7 @@ import {
   Star, 
   Download, 
   CheckCircle, 
-  ExternalLink,
-  Sparkles,
-  BookOpen,
-  RefreshCw,
-  FileText
+  ExternalLink
 } from 'lucide-react';
 
 interface NotePreviewModalProps {
@@ -35,9 +29,6 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
 }) => {
   const [currentNote, setCurrentNote] = useState<NoteItem>(note);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [viewerMode, setViewerMode] = useState<'pages' | 'ai_summary'>('pages');
-  const [aiSummary, setAiSummary] = useState<AiDocumentSummaryResult | null>(null);
-  const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
 
   useEffect(() => {
     let active = true;
@@ -51,28 +42,6 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
     };
   }, [currentNote]);
 
-  const loadAiSummary = async (mode = 'comprehensive') => {
-    if (aiSummary && aiSummary.mode === mode) return;
-    setIsLoadingAi(true);
-    try {
-      const content = currentNote.textContent || 
-        `${currentNote.title}\nSubject: ${currentNote.subject}\nUnits: ${currentNote.unitsCovered}\n${currentNote.description}`;
-      const res = await generateDocumentSummary({
-        textContent: content,
-        title: currentNote.title,
-        subject: currentNote.subject,
-        university: currentNote.university,
-        semester: currentNote.semester,
-        mode: mode as any,
-      });
-      setAiSummary(res);
-    } catch (e) {
-      console.error('Failed to load summary in modal:', e);
-    } finally {
-      setIsLoadingAi(false);
-    }
-  };
-
   return (
     <div 
       id="note-preview-modal-backdrop" 
@@ -85,45 +54,21 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
         className="bg-slate-900 rounded-3xl max-w-5xl w-full h-[94vh] overflow-hidden shadow-2xl border border-slate-700 flex flex-col md:flex-row text-white animate-in zoom-in-95 duration-200 select-none"
       >
-        {/* Left / Center: Document Viewer or AI Summary */}
+        {/* Left / Center: Real Canvas-Rendered PDF Document Viewer */}
         <div className="flex-1 flex flex-col bg-slate-950 overflow-hidden border-b md:border-b-0 md:border-r border-slate-800">
-          {/* Top Window Bar with View Selector */}
+          {/* Top Window Bar */}
           <div className="bg-slate-900 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setViewerMode('pages')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                    viewerMode === 'pages'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Document Reader</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewerMode('ai_summary');
-                    loadAiSummary();
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                    viewerMode === 'ai_summary'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  <span>AI Study Summary</span>
-                </button>
-              </div>
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span className="ml-2 text-xs font-mono text-slate-300 truncate max-w-[200px] sm:max-w-md">
+                {currentNote.pdfFileName || `${currentNote.title}.pdf`}
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
-              {isPurchased && pdfBlobUrl && viewerMode === 'pages' && (
+              {isPurchased && pdfBlobUrl && (
                 <a
                   href={pdfBlobUrl}
                   target="_blank"
@@ -146,45 +91,17 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
             </div>
           </div>
 
-          {/* View Container */}
-          {viewerMode === 'pages' ? (
-            <div className="flex-1 overflow-hidden p-2 sm:p-3 bg-slate-950 flex justify-center items-stretch">
-              <DocumentCanvasViewer 
-                note={currentNote} 
-                pdfUrl={pdfBlobUrl}
-                isPurchased={isPurchased}
-                maxPreviewPages={3}
-                onBuy={() => onBuy(currentNote)}
-                className="w-full h-full"
-              />
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-950">
-              {isLoadingAi && !aiSummary ? (
-                <div className="py-24 text-center space-y-3">
-                  <RefreshCw className="w-8 h-8 animate-spin text-blue-400 mx-auto" />
-                  <p className="text-sm font-bold text-slate-300">Extracting AI Study Summary with Gemini 3.7...</p>
-                </div>
-              ) : aiSummary ? (
-                <AiDocumentSummaryViewer
-                  summary={aiSummary}
-                  onRegenerate={(m) => loadAiSummary(m)}
-                  isRegenerating={isLoadingAi}
-                  showCloseButton={false}
-                />
-              ) : (
-                <div className="py-16 text-center space-y-3">
-                  <p className="text-xs text-slate-400">Click below to generate the AI study pack for this note.</p>
-                  <button
-                    onClick={() => loadAiSummary()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold"
-                  >
-                    Generate AI Summary
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Real PDF & Photo Canvas Rendering */}
+          <div className="flex-1 overflow-hidden p-2 sm:p-3 bg-slate-950 flex justify-center items-stretch">
+            <DocumentCanvasViewer 
+              note={currentNote} 
+              pdfUrl={pdfBlobUrl}
+              isPurchased={isPurchased}
+              maxPreviewPages={3}
+              onBuy={() => onBuy(currentNote)}
+              className="w-full h-full"
+            />
+          </div>
 
           {/* Locked Pages Banner (if not purchased) */}
           {!isPurchased && (
@@ -192,7 +109,7 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
               <div className="flex items-center gap-2 text-slate-300">
                 <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
                 <span>
-                  Showing preview for <strong>{currentNote.title}</strong>. Full clean PDF unlocked after UPI payment.
+                  Showing preview for <strong>{currentNote.title}</strong>. Full document unlocked (clean original PDF without watermark) after purchase.
                 </span>
               </div>
               <button
@@ -204,7 +121,6 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
             </div>
           )}
         </div>
-
 
         {/* Right Sidebar: Note Details, Seller & Buy Action */}
         <div className="w-full md:w-80 lg:w-96 bg-slate-900 p-6 flex flex-col justify-between overflow-y-auto space-y-6">
@@ -272,17 +188,11 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-700 text-xs text-slate-300">
                 <div className="flex items-center gap-1">
-                  {currentNote.sellerRating > 0 ? (
-                    <>
-                      <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                      <strong className="text-white">{currentNote.sellerRating.toFixed(1)}</strong>
-                      <span className="text-slate-400">({currentNote.sellerRatingsCount} ratings)</span>
-                    </>
-                  ) : (
-                    <span className="text-slate-400 text-[11px]">New Senior Author</span>
-                  )}
+                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <strong className="text-white">{currentNote.sellerRating.toFixed(1)}</strong>
+                  <span className="text-slate-400">({currentNote.sellerRatingsCount} ratings)</span>
                 </div>
-                <span className="text-blue-300 font-medium">{currentNote.sellerYear || 'Senior'}</span>
+                <span className="text-blue-300 font-medium">{currentNote.sellerYear}</span>
               </div>
             </div>
 
@@ -337,8 +247,8 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
                       buyerName: currentUser?.name || 'Verified Student',
                       buyerEmail: currentUser?.email || 'student@college.edu',
                       amount: currentNote.price,
-                      sellerShare: currentNote.price * 0.9,
-                      platformShare: currentNote.price * 0.1,
+                      sellerShare: currentNote.price * 0.8,
+                      platformShare: currentNote.price * 0.2,
                       paymentMethod: 'upi_qr',
                       status: 'completed',
                       watermarkText: '',
@@ -350,6 +260,37 @@ export const NotePreviewModal: React.FC<NotePreviewModalProps> = ({
                 >
                   <Download className="w-4 h-4" />
                   <span>Download Clean PDF (No Watermark)</span>
+                </button>
+              </div>
+            ) : currentNote.status !== 'approved' ? (
+              <div className="space-y-2">
+                <div className={`p-3 rounded-xl text-xs font-semibold text-center border ${
+                  currentNote.status === 'pending'
+                    ? 'bg-amber-950/80 border-amber-700/80 text-amber-300'
+                    : currentNote.status === 'changes_requested'
+                    ? 'bg-orange-950/80 border-orange-700/80 text-orange-300'
+                    : 'bg-rose-950/80 border-rose-700/80 text-rose-300'
+                }`}>
+                  <div className="font-bold flex items-center justify-center gap-1.5 mb-1">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>
+                      {currentNote.status === 'pending' && 'Under Moderation Review'}
+                      {currentNote.status === 'changes_requested' && 'Revisions Requested'}
+                      {currentNote.status === 'rejected' && 'Listing Rejected'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] opacity-90 leading-tight">
+                    {currentNote.status === 'pending' && 'This note is in the moderation queue and cannot be purchased until approved.'}
+                    {currentNote.status === 'changes_requested' && (currentNote.adminFeedback || 'Revisions were requested by moderators.')}
+                    {currentNote.status === 'rejected' && (currentNote.adminFeedback || 'Listing does not comply with academic standards.')}
+                  </p>
+                </div>
+                <button
+                  disabled
+                  className="w-full py-3 bg-slate-800 text-slate-400 rounded-2xl font-bold text-xs cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Not Available for Purchase Yet</span>
                 </button>
               </div>
             ) : (

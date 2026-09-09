@@ -1,5 +1,141 @@
 [
   {
+    "title": "🎤 NoteBridge",
+    "description": "Comprehensive handwritten academic notes for bms covering Complete Syllabus (Units 1 to 5) strictly according to Vidyalankar Polytechnic syllabus.",
+    "subject": "bms",
+    "university": "MSBTE (Maharashtra State Board of Technical Education)",
+    "collegeName": "Vidyalankar Polytechnic",
+    "collegeId": "col-vpoly",
+    "degree": "Diploma",
+    "courseId": "course-diploma",
+    "branch": "Computer Engineering",
+    "branchId": "branch-diploma-co",
+    "semester": 1,
+    "unitsCovered": "Complete Syllabus (Units 1 to 5)",
+    "unitId": "Complete Syllabus (Units 1 to 5)",
+    "academicYear": "2024-2025",
+    "price": 1,
+    "sellerId": "user-1788266035755",
+    "sellerName": "ppppp",
+    "sellerRating": 5,
+    "sellerRatingsCount": 1,
+    "sellerVerified": false,
+    "sellerCollege": "Vidyalankar Polytechnic",
+    "sellerYear": "Senior Scholar",
+    "totalPages": 2,
+    "fileSizeMb": 3.7,
+    "pdfFileName": "🎤 NoteBridge.pdf",
+    "tags": [
+      "bms",
+      "Sem 1",
+      "CO",
+      "PYQ Solved"
+    ],
+    "hasPYQ": true,
+    "hasHandwrittenFormulas": true,
+    "samplePages": [
+      {
+        "pageNumber": 1,
+        "title": "Unit 1: Overview & Fundamental Concepts in bms",
+        "sections": [
+          {
+            "heading": "1.1 Key Principles & Definitions",
+            "body": "Core principles and theoretical framework according to current Vidyalankar Polytechnic curriculum.",
+            "formula": "F(s) = \\int_0^\\infty f(t) e^{-st} dt \\quad \\text{(Exam high-weightage equation)}",
+            "pyqAlert": "★ Frequently Asked in End-Sem Exam (7-8 Marks)",
+            "tips": "Pro Tip: Include neat step-by-step derivations for full evaluation marks."
+          }
+        ]
+      },
+      {
+        "pageNumber": 2,
+        "title": "Unit 2: Solved University Numerical & Diagrams",
+        "sections": [
+          {
+            "heading": "2.1 Step-by-Step Solved Problem Model",
+            "body": "Detailed working solution with all standard university assumption steps laid out sequentially.",
+            "diagramDescription": "[Block Architecture / Circuit / Flow Schematic]"
+          }
+        ]
+      }
+    ],
+    "id": "note-1788960400003",
+    "status": "pending",
+    "salesCount": 0,
+    "rating": 5,
+    "reviewsCount": 0,
+    "reviews": [],
+    "createdAt": "2026-09-09"
+  },
+  {
+    "title": "🎤 NoteBridge",
+    "description": "Comprehensive handwritten academic notes for bms covering Complete Syllabus (Units 1 to 5) strictly according to Vidyalankar Polytechnic syllabus.",
+    "subject": "bms",
+    "university": "MSBTE (Maharashtra State Board of Technical Education)",
+    "collegeName": "Vidyalankar Polytechnic",
+    "collegeId": "col-vpoly",
+    "degree": "Diploma",
+    "courseId": "course-diploma",
+    "branch": "Computer Engineering",
+    "branchId": "branch-diploma-co",
+    "semester": 1,
+    "unitsCovered": "Complete Syllabus (Units 1 to 5)",
+    "unitId": "Complete Syllabus (Units 1 to 5)",
+    "academicYear": "2024-2025",
+    "price": 1,
+    "sellerId": "user-1788266035755",
+    "sellerName": "ppppp",
+    "sellerRating": 5,
+    "sellerRatingsCount": 1,
+    "sellerVerified": false,
+    "sellerCollege": "Vidyalankar Polytechnic",
+    "sellerYear": "Senior Scholar",
+    "totalPages": 2,
+    "fileSizeMb": 3.7,
+    "pdfFileName": "🎤 NoteBridge.pdf",
+    "tags": [
+      "bms",
+      "Sem 1",
+      "CO",
+      "PYQ Solved"
+    ],
+    "hasPYQ": true,
+    "hasHandwrittenFormulas": true,
+    "samplePages": [
+      {
+        "pageNumber": 1,
+        "title": "Unit 1: Overview & Fundamental Concepts in bms",
+        "sections": [
+          {
+            "heading": "1.1 Key Principles & Definitions",
+            "body": "Core principles and theoretical framework according to current Vidyalankar Polytechnic curriculum.",
+            "formula": "F(s) = \\int_0^\\infty f(t) e^{-st} dt \\quad \\text{(Exam high-weightage equation)}",
+            "pyqAlert": "★ Frequently Asked in End-Sem Exam (7-8 Marks)",
+            "tips": "Pro Tip: Include neat step-by-step derivations for full evaluation marks."
+          }
+        ]
+      },
+      {
+        "pageNumber": 2,
+        "title": "Unit 2: Solved University Numerical & Diagrams",
+        "sections": [
+          {
+            "heading": "2.1 Step-by-Step Solved Problem Model",
+            "body": "Detailed working solution with all standard university assumption steps laid out sequentially.",
+            "diagramDescription": "[Block Architecture / Circuit / Flow Schematic]"
+          }
+        ]
+      }
+    ],
+    "id": "note-1788960398018",
+    "status": "pending",
+    "salesCount": 0,
+    "rating": 5,
+    "reviewsCount": 0,
+    "reviews": [],
+    "createdAt": "2026-09-09"
+  },
+  {
     "title": "Raj Sambhaji Bhosale MST082026055980 20 Aug 2026 10 46 56 RegistrationCertificate (1)",
     "description": "Comprehensive handwritten academic notes for bms covering Complete Syllabus (Units 1 to 5) strictly according to Vidyalankar Polytechnic syllabus.",
     "subject": "bms",

@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { PurchaseOrder, NoteItem, User } from '../types';
 import { approvePurchaseOrder, rejectPurchaseOrder, deleteOrder } from '../utils/storage';
-import { updateServerOrder, deleteServerOrder } from '../utils/apiSync';
 import { PhonePeQrCard } from './PhonePeQrCard';
-import { PaymentScreenshotModal } from './PaymentScreenshotModal';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -36,7 +34,6 @@ export const AdminOrderVerification: React.FC<AdminOrderVerificationProps> = ({
   const [filterStatus, setFilterStatus] = useState<'pending_verification' | 'completed' | 'rejected' | 'all'>('pending_verification');
   const [searchQuery, setSearchQuery] = useState('');
   const [previewScreenshotUrl, setPreviewScreenshotUrl] = useState<string | null>(null);
-  const [previewOrder, setPreviewOrder] = useState<PurchaseOrder | null>(null);
   const [showQrStandeeModal, setShowQrStandeeModal] = useState(false);
   const [rejectionModalOrderId, setRejectionModalOrderId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -48,36 +45,21 @@ export const AdminOrderVerification: React.FC<AdminOrderVerificationProps> = ({
     setTimeout(() => setSuccessToast(''), 4000);
   };
 
-  const handleApprove = async (order: PurchaseOrder) => {
+  const handleApprove = (order: PurchaseOrder) => {
     const success = approvePurchaseOrder(order.id, 'Raj Sambhaji Bhosale (Admin)');
     if (success) {
-      // Sync approved status to backend
-      updateServerOrder(order.id, {
-        status: 'completed',
-        verifiedAt: new Date().toISOString(),
-        verifiedBy: 'Raj Sambhaji Bhosale (Admin)',
-      }).catch(() => {});
-
       showToast(`Order #${order.orderNumber} APPROVED! Download access unlocked for ${order.buyerName} and seller wallet credited.`);
       onOrderUpdated();
     }
   };
 
-  const handleConfirmReject = async (e: React.FormEvent) => {
+  const handleConfirmReject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!rejectionModalOrderId) return;
 
     const reason = rejectionReason.trim() || 'Invalid PhonePe transaction reference or screenshot proof mismatch.';
     const success = rejectPurchaseOrder(rejectionModalOrderId, reason, 'Raj Sambhaji Bhosale (Admin)');
     if (success) {
-      // Sync rejected status to backend
-      updateServerOrder(rejectionModalOrderId, {
-        status: 'rejected',
-        rejectionReason: reason,
-        verifiedAt: new Date().toISOString(),
-        verifiedBy: 'Raj Sambhaji Bhosale (Admin)',
-      }).catch(() => {});
-
       showToast(`Order marked as REJECTED. Buyer notified.`);
       setRejectionModalOrderId(null);
       setRejectionReason('');
@@ -85,15 +67,11 @@ export const AdminOrderVerification: React.FC<AdminOrderVerificationProps> = ({
     }
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = () => {
     if (!deleteModalOrder) return;
     const orderNum = deleteModalOrder.orderNumber;
-    const orderId = deleteModalOrder.id;
-    const ok = deleteOrder(orderId, 'Raj Sambhaji Bhosale (Admin)');
+    const ok = deleteOrder(deleteModalOrder.id, 'Raj Sambhaji Bhosale (Admin)');
     if (ok) {
-      // Sync permanent deletion to backend
-      deleteServerOrder(orderId).catch(() => {});
-
       showToast(`Order #${orderNum} deleted permanently from database.`);
       setDeleteModalOrder(null);
       onOrderUpdated();
@@ -288,17 +266,17 @@ export const AdminOrderVerification: React.FC<AdminOrderVerificationProps> = ({
                           <span className="font-mono font-bold text-xs text-slate-800 bg-slate-100 px-2 py-0.5 rounded block max-w-fit">
                             UTR: {order.upiTransactionId || 'T2608...'}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPreviewOrder(order);
-                              setPreviewScreenshotUrl(order.paymentScreenshotUrl || '');
-                            }}
-                            className="text-[11px] text-purple-700 hover:text-purple-900 font-bold flex items-center gap-1 hover:underline"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-purple-600" />
-                            <span>{order.paymentScreenshotUrl ? 'View Payment Screenshot' : 'View Payment Receipt'}</span>
-                          </button>
+                          {order.paymentScreenshotUrl ? (
+                            <button
+                              onClick={() => setPreviewScreenshotUrl(order.paymentScreenshotUrl || null)}
+                              className="text-[11px] text-purple-700 hover:text-purple-900 font-bold flex items-center gap-1 underline"
+                            >
+                              <Eye className="w-3 h-3" />
+                              <span>View Payment Screenshot</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">No screenshot</span>
+                          )}
                         </div>
                       </td>
 
@@ -372,21 +350,40 @@ export const AdminOrderVerification: React.FC<AdminOrderVerificationProps> = ({
         )}
       </div>
 
-      {/* Screenshot & Receipt Preview Modal */}
-      {(previewScreenshotUrl !== null || previewOrder !== null) && (
-        <PaymentScreenshotModal
-          screenshotUrl={previewScreenshotUrl}
-          order={previewOrder}
-          onClose={() => {
-            setPreviewScreenshotUrl(null);
-            setPreviewOrder(null);
-          }}
-          onApprove={(ord) => handleApprove(ord)}
-          onReject={(ord) => {
-            setRejectionModalOrderId(ord.id);
-            setRejectionReason('');
-          }}
-        />
+      {/* Screenshot Preview Modal */}
+      {previewScreenshotUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm text-slate-900">
+                PhonePe Payment Screenshot Proof
+              </h3>
+              <button
+                onClick={() => setPreviewScreenshotUrl(null)}
+                className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 flex items-center justify-center max-h-[70vh]">
+              <img
+                src={previewScreenshotUrl}
+                alt="Payment proof screenshot"
+                className="max-h-[68vh] object-contain rounded-xl"
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setPreviewScreenshotUrl(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Rejection Reason Modal */}

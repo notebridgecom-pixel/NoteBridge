@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   Filter, 
@@ -11,7 +11,9 @@ import {
   Check, 
   ShieldCheck,
   Building2,
-  Layers
+  Layers,
+  Clock,
+  X
 } from 'lucide-react';
 import { NoteItem, FilterState } from '../types';
 import { getColleges, getCourses, getBranches } from '../utils/catalogStorage';
@@ -36,6 +38,7 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({
 }) => {
   const dynamicColleges = useMemo(() => getColleges(false), []);
   const dynamicCourses = useMemo(() => getCourses(undefined, false), []);
+  const dynamicBranches = useMemo(() => getBranches(undefined, undefined, false), []);
 
   const [searchQuery, setSearchQuery] = useState(initialFilters.searchQuery || '');
   const [selectedCollege, setSelectedCollege] = useState(initialFilters.collegeName || 'All Colleges');
@@ -48,24 +51,71 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({
   const [hasPYQOnly, setHasPYQOnly] = useState(false);
   const [maxPrice, setMaxPrice] = useState<number>(initialFilters.maxPrice !== undefined ? initialFilters.maxPrice : 1000);
 
-  // Dynamically resolve branches matching the chosen stream/college with strict uniqueness
-  const dynamicBranches = useMemo(() => {
-    const selectedCourseObj = selectedDegree !== 'All Courses' && selectedDegree !== 'All Degrees'
-      ? dynamicCourses.find((c) => c.name.toLowerCase() === selectedDegree.toLowerCase())
-      : undefined;
-    const selectedCollegeObj = selectedCollege !== 'All Colleges'
-      ? dynamicColleges.find((c) => c.name.toLowerCase() === selectedCollege.toLowerCase())
-      : undefined;
+  // Persisted recent searches via local storage
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('notebridge_recent_searches_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return ['Engineering Mathematics', 'Data Structures', 'Applied Physics'];
+    } catch {
+      return ['Engineering Mathematics', 'Data Structures', 'Applied Physics'];
+    }
+  });
 
-    const raw = getBranches(selectedCourseObj?.id, selectedCollegeObj?.id, false);
-    return Array.from(new Map(raw.map((b) => [b.name.toLowerCase().trim(), b])).values());
-  }, [selectedDegree, selectedCollege, dynamicCourses, dynamicColleges]);
+  const saveRecentSearch = (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed || trimmed.length < 2) return;
+    setRecentSearches((prev) => {
+      const filtered = prev.filter((item) => item.toLowerCase() !== trimmed.toLowerCase());
+      const updated = [trimmed, ...filtered].slice(0, 8);
+      try {
+        localStorage.setItem('notebridge_recent_searches_v1', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Failed to save recent searches:', err);
+      }
+      return updated;
+    });
+  };
 
-  // Derive unique subject names from both notes and catalog
+  const handleRemoveRecentSearch = (e: React.MouseEvent, itemToRemove: string) => {
+    e.stopPropagation();
+    setRecentSearches((prev) => {
+      const updated = prev.filter((item) => item !== itemToRemove);
+      try {
+        localStorage.setItem('notebridge_recent_searches_v1', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Failed to update recent searches:', err);
+      }
+      return updated;
+    });
+  };
+
+  const handleClearAllRecentSearches = () => {
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem('notebridge_recent_searches_v1');
+    } catch (err) {
+      console.warn('Failed to clear recent searches:', err);
+    }
+  };
+
+  // Debounced persistence when user types search terms
+  useEffect(() => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 3) return;
+    const timer = setTimeout(() => {
+      saveRecentSearch(searchQuery);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Derive unique subject names from approved notes
   const subjectList = useMemo(() => {
     const subs = new Set<string>();
     notes.forEach((n) => {
-      if (n.subject) subs.add(n.subject);
+      if (n.status === 'approved' && n.subject) subs.add(n.subject);
     });
     return ['All Subjects', ...Array.from(subs)];
   }, [notes]);
@@ -217,6 +267,16 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({
             placeholder="Search by subject name, topic (e.g. Trees, Pointers, SOM), college, or senior author..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                saveRecentSearch(searchQuery);
+              }
+            }}
+            onBlur={() => {
+              if (searchQuery.trim().length >= 2) {
+                saveRecentSearch(searchQuery);
+              }
+            }}
             className="w-full pl-12 pr-4 py-3 bg-white rounded-2xl border border-slate-200 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
           />
           {searchQuery && (
@@ -401,6 +461,68 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({
 
         {/* Results Area */}
         <div className="lg:col-span-3 space-y-4">
+          {/* Recent Searches Pill-Based UI */}
+          {recentSearches.length > 0 && (
+            <div 
+              id="recent-searches-pill-bar"
+              className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <Clock className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Recent Searches</span>
+                  <span className="text-[10px] text-slate-400 font-normal">({recentSearches.length})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearAllRecentSearches}
+                  className="text-[11px] font-medium text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                >
+                  Clear history
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {recentSearches.map((term) => {
+                  const isSelected = searchQuery.trim().toLowerCase() === term.toLowerCase();
+                  return (
+                    <div
+                      key={term}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                        isSelected
+                          ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-600/30'
+                          : 'bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200/80 hover:border-blue-200'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery(term);
+                          saveRecentSearch(term);
+                        }}
+                        className="cursor-pointer text-left"
+                      >
+                        {term}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Remove recent search ${term}`}
+                        onClick={(e) => handleRemoveRecentSearch(e, term)}
+                        className={`w-3.5 h-3.5 rounded-full flex items-center justify-center transition cursor-pointer ${
+                          isSelected
+                            ? 'hover:bg-blue-700 text-blue-200 hover:text-white'
+                            : 'hover:bg-slate-300 text-slate-400 hover:text-slate-700'
+                        }`}
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Top Sort & Count Bar */}
           <div className="bg-white p-3.5 px-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <span className="text-slate-600 font-medium">

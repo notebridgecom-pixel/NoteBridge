@@ -10,8 +10,6 @@ import {
   saveNoteFileBlob,
   getDeletedNoteIds,
   recordDeletedNoteId,
-  getDeletedOrderIds,
-  recordDeletedOrderId,
 } from './storage';
 
 /**
@@ -138,45 +136,28 @@ export async function fetchNotePdfFromServer(noteId: string): Promise<string | n
 // Fetch all purchase orders from the central server
 export async function fetchServerOrders(): Promise<PurchaseOrder[]> {
   try {
-    const deletedOrderIds = getDeletedOrderIds();
     const res = await fetch('/api/orders', {
       headers: { 'Cache-Control': 'no-cache' },
     });
     if (!res.ok) {
-      return getStoredOrders().filter((o) => !deletedOrderIds.has(o.id) && (!o.orderNumber || !deletedOrderIds.has(o.orderNumber)));
+      return getStoredOrders();
     }
     const data = await res.json();
     if (Array.isArray(data)) {
       const localOrders = getStoredOrders();
-      const localMap = new Map(localOrders.map((o) => [o.id, o]));
       const seen = new Set<string>();
       const merged: PurchaseOrder[] = [];
 
-      // Server orders are merged with local updates
+      // Server orders are source of truth
       data.forEach((so: PurchaseOrder) => {
-        if (!so) return;
         const key = so.id || so.orderNumber;
         if (!key || seen.has(key)) return;
-        if (deletedOrderIds.has(so.id) || (so.orderNumber && deletedOrderIds.has(so.orderNumber))) {
-          return;
-        }
         seen.add(key);
-
-        // Check if local has newer verified or updated state
-        const local = localMap.get(so.id);
-        if (local && (local.status === 'completed' || local.status === 'rejected') && so.status === 'pending_verification') {
-          merged.push(local);
-        } else {
-          merged.push(so);
-        }
+        merged.push(so);
       });
 
       // Preserve any local uncommitted orders
       localOrders.forEach((lo) => {
-        if (!lo) return;
-        if (deletedOrderIds.has(lo.id) || (lo.orderNumber && deletedOrderIds.has(lo.orderNumber))) {
-          return;
-        }
         const key = lo.id || lo.orderNumber;
         if (key && !seen.has(key)) {
           seen.add(key);
@@ -224,20 +205,6 @@ export async function updateServerOrder(orderId: string, updates: Partial<Purcha
   }
 }
 
-// Permanently delete order on the server
-export async function deleteServerOrder(orderId: string): Promise<boolean> {
-  try {
-    recordDeletedOrderId(orderId);
-    const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
-      method: 'DELETE',
-    });
-    return res.ok;
-  } catch (err) {
-    console.warn('[Sync] Order delete sync warning:', err);
-    return false;
-  }
-}
-
 // Fetch all withdrawals from the central server
 export async function fetchServerWithdrawals(): Promise<WithdrawalRequest[]> {
   try {
@@ -279,18 +246,5 @@ export async function updateServerWithdrawal(withdrawalId: string, updates: Part
     });
   } catch (err) {
     console.warn('[Sync] Withdrawal update sync warning:', err);
-  }
-}
-
-// Permanently delete withdrawal on the server
-export async function deleteServerWithdrawal(withdrawalId: string): Promise<boolean> {
-  try {
-    const res = await fetch(`/api/withdrawals/${encodeURIComponent(withdrawalId)}`, {
-      method: 'DELETE',
-    });
-    return res.ok;
-  } catch (err) {
-    console.warn('[Sync] Withdrawal delete sync warning:', err);
-    return false;
   }
 }

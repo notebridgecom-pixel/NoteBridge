@@ -96,7 +96,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   purchasedNoteIds,
 }) => {
   const dynamicColleges = getColleges(false);
-  const dynamicCourses = getCourses(undefined, false);
+  const dynamicBranches = getBranches(undefined, undefined, false);
 
   // Search bar state
   const [selectedStream, setSelectedStream] = useState('All Streams');
@@ -104,15 +104,6 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [selectedBranch, setSelectedBranch] = useState('All Branches');
   const [selectedSemester, setSelectedSemester] = useState('All Semesters');
   const [subjectQuery, setSubjectQuery] = useState('');
-
-  // Dynamically resolve branches matching the chosen stream/college with strict uniqueness
-  const selectedCourseObj = selectedStream !== 'All Streams' ? dynamicCourses.find((c) => c.name.toLowerCase() === selectedStream.toLowerCase()) : undefined;
-  const selectedCollegeObj = selectedCollege !== 'All Colleges' ? dynamicColleges.find((c) => c.name.toLowerCase() === selectedCollege.toLowerCase()) : undefined;
-
-  const rawBranches = getBranches(selectedCourseObj?.id, selectedCollegeObj?.id, false);
-  const dynamicBranches = Array.from(
-    new Map(rawBranches.map((b) => [b.name.toLowerCase().trim(), b])).values()
-  );
 
   // Active category filter for featured notes
   const [activeNoteCategory, setActiveNoteCategory] = useState<'all' | 'pyqs' | 'topper' | 'cheatsheet'>('all');
@@ -157,8 +148,9 @@ export const HomePage: React.FC<HomePageProps> = ({
     });
   };
 
-  // Filtered featured notes based on category
+  // Filtered featured notes based on category (strictly approved only)
   const filteredNotes = featuredNotes.filter((note) => {
+    if (note.status !== 'approved') return false;
     if (activeNoteCategory === 'all') return true;
     const title = (note.title + ' ' + (note.description || '') + ' ' + (note.subject || '')).toLowerCase();
     if (activeNoteCategory === 'pyqs') return title.includes('pyq') || title.includes('question') || title.includes('exam') || title.includes('solved');
@@ -242,18 +234,6 @@ export const HomePage: React.FC<HomePageProps> = ({
               <span>Sell Your Notes</span>
               <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full ml-1">
                 Earn 80%
-              </span>
-            </button>
-
-            <button
-              id="hero-ai-summarizer-btn"
-              onClick={() => onNavigate('ai-summarizer')}
-              className="w-full sm:w-auto px-7 py-4 bg-gradient-to-r from-blue-900 to-indigo-900 hover:from-blue-800 hover:to-indigo-800 active:scale-95 text-white rounded-2xl font-bold text-base shadow-md transition flex items-center justify-center gap-2 border border-blue-700/50"
-            >
-              <Sparkles className="w-5 h-5 text-amber-300" />
-              <span>AI Document Summarizer</span>
-              <span className="text-xs bg-amber-400 text-slate-900 font-black px-2 py-0.5 rounded-full ml-1">
-                Gemini 3.7
               </span>
             </button>
           </div>
@@ -374,10 +354,10 @@ export const HomePage: React.FC<HomePageProps> = ({
               <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
                   <span className="font-bold text-slate-700">Quick Tags:</span>
-                  <button type="button" onClick={() => handleSubjectClick('Electronics and Computer Engineering')} className="text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md font-semibold transition">Electronics &amp; Computer Engg</button>
                   <button type="button" onClick={() => handleSubjectClick('Telecommunication Engineering (TE)')} className="text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md font-semibold transition">TE Core Notes</button>
                   <button type="button" onClick={() => handleSubjectClick('Engineering Mathematics')} className="text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md font-semibold transition">M-2 / M-3</button>
                   <button type="button" onClick={() => handleSubjectClick('Data Structures & Algorithms')} className="text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md font-semibold transition">DSA &amp; Trees</button>
+                  <button type="button" onClick={() => handleSubjectClick('Operating Systems')} className="text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md font-semibold transition">OS &amp; Deadlocks</button>
                 </div>
 
                 <button
@@ -447,7 +427,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 B.Tech / B.E. Engineering
               </h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                4-Year Degree • Sem 1 to Sem 8. CSE, Electronics & Computer Engg (ECE), IT, TE, AI/DS, Mech, Civil.
+                4-Year Degree • Sem 1 to Sem 8. CSE, IT, Telecommunication (TE), Mechanical, AI/DS, Civil.
               </p>
             </div>
             <div className="pt-2 flex items-center justify-between text-xs font-bold text-blue-600">

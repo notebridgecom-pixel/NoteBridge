@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NoteItem, User, PurchaseOrder } from '../types';
 import { recordPendingPhonePePurchase, recordPurchase, BUSINESS_RULES } from '../utils/storage';
-import { postServerOrder } from '../utils/apiSync';
 import { PhonePeQrCard } from './PhonePeQrCard';
-import { PaymentScreenshotModal } from './PaymentScreenshotModal';
 import { 
   X, 
   QrCode, 
@@ -17,8 +15,7 @@ import {
   ArrowRight,
   Info,
   Sparkles,
-  Zap,
-  Eye
+  Zap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -41,7 +38,6 @@ export const UpiPaymentModal: React.FC<UpiPaymentModalProps> = ({
   const [upiTransactionId, setUpiTransactionId] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string>('');
-  const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedOrder, setSubmittedOrder] = useState<PurchaseOrder | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -62,46 +58,9 @@ export const UpiPaymentModal: React.FC<UpiPaymentModalProps> = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setScreenshotFile(file);
-
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        const rawUrl = ev.target?.result as string;
-        // Optimize and compress image using HTML5 canvas
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1200;
-          const MAX_HEIGHT = 1600;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height = Math.round(height * (MAX_WIDTH / width));
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width = Math.round(width * (MAX_HEIGHT / height));
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            const compressed = canvas.toDataURL('image/jpeg', 0.85);
-            setScreenshotPreview(compressed);
-          } else {
-            setScreenshotPreview(rawUrl);
-          }
-        };
-        img.onerror = () => {
-          setScreenshotPreview(rawUrl);
-        };
-        img.src = rawUrl;
+      reader.onload = () => {
+        setScreenshotPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -137,9 +96,6 @@ export const UpiPaymentModal: React.FC<UpiPaymentModalProps> = ({
         paymentScreenshotUrl: screenshotPreview || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80',
         receiverName,
       });
-
-      // Synchronize order to centralized server
-      postServerOrder(order).catch(() => {});
 
       setSubmittedOrder(order);
       setIsSubmitting(false);
@@ -296,36 +252,21 @@ export const UpiPaymentModal: React.FC<UpiPaymentModalProps> = ({
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
                   {screenshotPreview ? (
-                    <div className="flex items-center justify-between gap-3 p-1">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={screenshotPreview}
-                          alt="Payment Screenshot"
-                          className="w-14 h-14 object-cover rounded-xl border border-purple-300 shadow-xs"
-                        />
-                        <div className="text-left">
-                          <span className="text-xs font-bold text-purple-950 block">
-                            ✓ Screenshot Attached
-                          </span>
-                          <span className="text-[11px] text-purple-700">
-                            {screenshotFile ? screenshotFile.name : 'PhonePe payment receipt'}
-                          </span>
-                          <span className="text-[10px] text-slate-500 block">Click anywhere to change</span>
-                        </div>
+                    <div className="flex items-center justify-center gap-3">
+                      <img
+                        src={screenshotPreview}
+                        alt="Payment Screenshot"
+                        className="w-16 h-16 object-cover rounded-xl border border-purple-300 shadow-xs"
+                      />
+                      <div className="text-left">
+                        <span className="text-xs font-bold text-purple-950 block">
+                          ✓ Screenshot Attached
+                        </span>
+                        <span className="text-[11px] text-purple-700">
+                          {screenshotFile ? screenshotFile.name : 'Sample PhonePe receipt'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block">Click to change</span>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setShowScreenshotModal(true);
-                        }}
-                        className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition z-10"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-purple-700" />
-                        <span>Preview Proof</span>
-                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-1.5 py-1">
@@ -401,17 +342,6 @@ export const UpiPaymentModal: React.FC<UpiPaymentModalProps> = ({
                 <span className="text-slate-500">Receiver:</span>
                 <span className="font-bold text-slate-900">{submittedOrder.receiverName}</span>
               </div>
-              <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                <span className="text-slate-500">Proof Screenshot:</span>
-                <button
-                  type="button"
-                  onClick={() => setShowScreenshotModal(true)}
-                  className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition"
-                >
-                  <Eye className="w-3 h-3 text-purple-700" />
-                  <span>Preview Attached Screenshot</span>
-                </button>
-              </div>
             </div>
 
             {/* What happens next explanation */}
@@ -437,32 +367,6 @@ export const UpiPaymentModal: React.FC<UpiPaymentModalProps> = ({
           </div>
         )}
       </div>
-
-      {/* Interactive Screenshot Preview Modal */}
-      {showScreenshotModal && (
-        <PaymentScreenshotModal
-          screenshotUrl={submittedOrder?.paymentScreenshotUrl || screenshotPreview}
-          order={submittedOrder || {
-            id: 'temp-preview',
-            orderNumber: 'PREVIEW',
-            buyerId: effectiveBuyer?.id || 'buyer',
-            buyerName: effectiveBuyer?.name || 'Buyer',
-            buyerEmail: effectiveBuyer?.email || '',
-            noteId: note.id,
-            noteTitle: note.title,
-            sellerId: note.sellerId,
-            sellerName: note.sellerName,
-            amount: note.price,
-            paymentMethod: 'upi_phonepe',
-            upiTransactionId: upiTransactionId || 'T260824...',
-            receiverName,
-            paymentScreenshotUrl: screenshotPreview,
-            status: 'pending_verification',
-            createdAt: new Date().toISOString(),
-          }}
-          onClose={() => setShowScreenshotModal(false)}
-        />
-      )}
     </div>
   );
 };

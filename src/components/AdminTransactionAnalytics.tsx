@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { PurchaseOrder, User, WithdrawalRequest } from '../types';
 import { BUSINESS_RULES } from '../utils/storage';
-import { PaymentScreenshotModal } from './PaymentScreenshotModal';
 import { 
   TrendingUp, 
   Calendar, 
@@ -23,8 +22,7 @@ import {
   Check,
   Building2,
   GraduationCap,
-  Sparkles,
-  Eye
+  Sparkles
 } from 'lucide-react';
 
 interface AdminTransactionAnalyticsProps {
@@ -44,7 +42,6 @@ export const AdminTransactionAnalytics: React.FC<AdminTransactionAnalyticsProps>
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'pending_verification' | 'rejected'>('all');
   const [copiedUtr, setCopiedUtr] = useState<string | null>(null);
-  const [previewScreenshotOrder, setPreviewScreenshotOrder] = useState<PurchaseOrder | null>(null);
 
   const now = Date.now();
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -561,19 +558,9 @@ export const AdminTransactionAnalytics: React.FC<AdminTransactionAnalyticsProps>
                       </td>
                       <td className="p-3.5">
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2 pt-0.5">
-                            <span className="inline-block px-2 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700 uppercase">
-                              {order.paymentMethod === 'upi_id' ? 'UPI VPA' : 'PhonePe QR'}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setPreviewScreenshotOrder(order)}
-                              className="text-[10px] text-purple-700 hover:text-purple-900 font-bold flex items-center gap-1 hover:underline"
-                            >
-                              <Eye className="w-3 h-3 text-purple-600" />
-                              <span>{order.paymentScreenshotUrl ? 'Screenshot' : 'Receipt'}</span>
-                            </button>
-                          </div>
+                          <span className="inline-block px-2 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700 uppercase">
+                            {order.paymentMethod === 'upi_id' ? 'UPI VPA' : 'PhonePe QR'}
+                          </span>
                           {order.upiTransactionId && (
                             <div className="flex items-center gap-1 font-mono text-[10px] text-slate-600 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded max-w-fit">
                               <span>{order.upiTransactionId}</span>
@@ -626,15 +613,6 @@ export const AdminTransactionAnalytics: React.FC<AdminTransactionAnalyticsProps>
           </div>
         )}
       </div>
-
-      {/* Payment Screenshot & Receipt Modal */}
-      {previewScreenshotOrder && (
-        <PaymentScreenshotModal
-          screenshotUrl={previewScreenshotOrder.paymentScreenshotUrl || null}
-          order={previewScreenshotOrder}
-          onClose={() => setPreviewScreenshotOrder(null)}
-        />
-      )}
     </div>
   );
 };

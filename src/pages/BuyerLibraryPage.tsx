@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, NoteItem, PurchaseOrder } from '../types';
 import { WatermarkBadge } from '../components/WatermarkBadge';
-import { PaymentScreenshotModal } from '../components/PaymentScreenshotModal';
 import { submitSellerApplication, getStoredOrders, getStoredNotes, saveOrders, setCurrentUser } from '../utils/storage';
 import { downloadWatermarkedPdf } from '../utils/pdfGenerator';
 import { INITIAL_USERS } from '../data/mockData';
@@ -43,13 +42,15 @@ import {
   ArrowRight,
   ShieldAlert,
   Zap,
-  Camera
+  Camera,
+  Loader2
 } from 'lucide-react';
 
 interface BuyerLibraryPageProps {
   currentUser: User | null;
   notes: NoteItem[];
   orders: PurchaseOrder[];
+  initialTab?: 'all' | 'unlocked' | 'authored' | 'payments' | 'starred';
   onOpenPreview: (note: NoteItem) => void;
   onOpenRate: (note: NoteItem) => void;
   onBrowseNotes: () => void;
@@ -64,6 +65,7 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
   currentUser,
   notes,
   orders,
+  initialTab,
   onOpenPreview,
   onOpenRate,
   onBrowseNotes,
@@ -74,13 +76,21 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
   onUpdateUser,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'unlocked' | 'authored' | 'payments' | 'starred'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'unlocked' | 'authored' | 'payments' | 'starred'>(
+    initialTab || 'all'
+  );
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [isRefreshingOrders, setIsRefreshingOrders] = useState(false);
   const [isApplyingSeller, setIsApplyingSeller] = useState(false);
   const [sellerApplyNotice, setSellerApplyNotice] = useState('');
   const [sellerIdPhotoUrl, setSellerIdPhotoUrl] = useState('');
-  const [previewScreenshotOrder, setPreviewScreenshotOrder] = useState<PurchaseOrder | null>(null);
+  const [downloadStatusMap, setDownloadStatusMap] = useState<Record<string, 'idle' | 'loading' | 'success'>>({});
 
   // Local persistence for student study preferences
   const effectiveUserId = currentUser?.id || 'guest';
@@ -369,10 +379,31 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
       alert('This order is awaiting admin verification for PhonePe transaction. Once verified, the download unlocks.');
       return;
     }
+    const downloadKey = order.id || note.id;
+    if (downloadStatusMap[downloadKey] === 'loading') return;
+
+    setDownloadStatusMap((prev) => ({ ...prev, [downloadKey]: 'loading' }));
+
     try {
-      await downloadWatermarkedPdf(order, note);
+      // Process PDF creation and trigger browser download, ensuring visible feedback
+      await Promise.all([
+        downloadWatermarkedPdf(order, note),
+        new Promise((resolve) => setTimeout(resolve, 850)),
+      ]);
+
+      setDownloadStatusMap((prev) => ({ ...prev, [downloadKey]: 'success' }));
+
+      // Automatically reset status back to idle after 3 seconds
+      setTimeout(() => {
+        setDownloadStatusMap((prev) => {
+          const next = { ...prev };
+          delete next[downloadKey];
+          return next;
+        });
+      }, 3000);
     } catch (err) {
       console.error('Failed to download PDF:', err);
+      setDownloadStatusMap((prev) => ({ ...prev, [downloadKey]: 'idle' }));
     }
   };
 
@@ -789,19 +820,17 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
             <span>Purchased & Unlocked ({purchasedItems.filter(p => p.order.status === 'completed' || p.order.status === 'verified').length})</span>
           </button>
 
-          {myAuthoredNotes.length > 0 && (
-            <button
-              onClick={() => setActiveTab('authored')}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === 'authored'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5 text-purple-400" />
-              <span>My Uploaded Notes ({myAuthoredNotes.length})</span>
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab('authored')}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'authored'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5 text-purple-400" />
+            <span>My Uploaded Notes ({myAuthoredNotes.length})</span>
+          </button>
 
           <button
             onClick={() => setActiveTab('payments')}
@@ -828,6 +857,37 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
           </button>
         </div>
       </div>
+
+      {/* BANNER FOR AUTHORED / SUBMITTED NOTES */}
+      {activeTab === 'authored' && (
+        <div className="p-4 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div className="space-y-0.5">
+              <h4 className="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-2">
+                <span>My Uploaded Notes & Moderation Desk</span>
+                <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-[10px] rounded-full font-extrabold">
+                  {myAuthoredNotes.length} Submitted
+                </span>
+              </h4>
+              <p className="text-[11px] text-slate-600 leading-relaxed max-w-2xl">
+                Every note submitted is reviewed by our Academic Council moderators. Notes marked <strong className="text-amber-700">&quot;Under Review&quot;</strong> are undergoing verification for syllabus accuracy. You can preview your full document or download clean PDFs anytime.
+              </p>
+            </div>
+          </div>
+          {onOpenUpload && (
+            <button
+              onClick={onOpenUpload}
+              className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 flex-shrink-0 shadow-xs"
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>+ Upload Another Note</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* TAB: PAYMENT APPROVAL TRACKING VIEW */}
       {activeTab === 'payments' ? (
@@ -961,26 +1021,58 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
                       </div>
                     )}
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewScreenshotOrder(order)}
-                        className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-purple-200"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-purple-700" />
-                        <span>{order.paymentScreenshotUrl ? 'View Payment Screenshot' : 'View Payment Proof'}</span>
-                      </button>
-
-                      {isApproved && matchedNote && (
+                    {isApproved && matchedNote && (
+                      <div className="flex flex-wrap justify-end gap-2 pt-1">
                         <button
                           onClick={() => onOpenPreview(matchedNote)}
-                          className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Open Unlocked Web Notes</span>
                         </button>
-                      )}
-                    </div>
+
+                        {(() => {
+                          const downloadKey = order.id || matchedNote.id;
+                          const dlState = downloadStatusMap[downloadKey] || 'idle';
+
+                          if (dlState === 'loading') {
+                            return (
+                              <button
+                                disabled
+                                className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-wait select-none"
+                              >
+                                <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />
+                                <span>Processing...</span>
+                              </button>
+                            );
+                          }
+
+                          if (dlState === 'success') {
+                            return (
+                              <button
+                                className="px-4 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 select-none animate-in zoom-in-95 duration-200"
+                              >
+                                <div className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                </div>
+                                <span>Downloaded!</span>
+                              </button>
+                            );
+                          }
+
+                          return (
+                            <button
+                              onClick={() => handleDownloadAgain(order, matchedNote)}
+                              className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                              title="Download Clean PDF (No Watermark)"
+                            >
+                              <Download className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Download PDF</span>
+                            </button>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1023,10 +1115,33 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
                         Sem {note.semester}
                       </span>
                       {isAuthored ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 flex items-center gap-1">
-                          <FileText className="w-2.5 h-2.5" />
-                          Author Copy
-                        </span>
+                        <>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 flex items-center gap-1">
+                            <FileText className="w-2.5 h-2.5" />
+                            Author Copy
+                          </span>
+                          {note.status === 'pending' ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-amber-600 animate-pulse" />
+                              Under Review by Moderator
+                            </span>
+                          ) : note.status === 'changes_requested' ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-100 text-orange-900 border border-orange-300 flex items-center gap-1">
+                              <AlertCircle className="w-2.5 h-2.5 text-orange-600" />
+                              Changes Requested
+                            </span>
+                          ) : note.status === 'rejected' ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-900 border border-rose-300 flex items-center gap-1">
+                              <AlertCircle className="w-2.5 h-2.5 text-rose-600" />
+                              Moderator Rejected
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                              Approved & Live
+                            </span>
+                          )}
+                        </>
                       ) : isPending ? (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">
                           <Clock className="w-2.5 h-2.5" />
@@ -1043,6 +1158,25 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
                     <h3 className="font-extrabold text-slate-900 text-base leading-snug line-clamp-2 mt-1">
                       {note.title}
                     </h3>
+
+                    {isAuthored && note.status === 'pending' && (
+                      <div className="mt-2.5 p-2.5 bg-amber-50/90 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+                        <Clock className="w-3.5 h-3.5 text-amber-600 mt-0.5 flex-shrink-0 animate-pulse" />
+                        <div>
+                          <span className="font-bold">Moderator Approval in Progress: </span>
+                          Our Academic Council is reviewing syllabus units, page previews, and formula legibility. You will receive updates here!
+                        </div>
+                      </div>
+                    )}
+                    {isAuthored && note.adminFeedback && (
+                      <div className="mt-2.5 p-2.5 bg-blue-50 border border-blue-200/80 rounded-xl text-[11px] text-blue-900 flex items-start gap-2">
+                        <AlertCircle className="w-3.5 h-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-bold">Moderator Feedback: </span>
+                          &ldquo;{note.adminFeedback}&rdquo;
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -1184,35 +1318,61 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
                       Payment could not be verified. Please contact support or re-attempt.
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          id={`btn-read-note-${note.id}`}
-                          onClick={() => onOpenPreview(note)}
-                          className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Open Notes</span>
-                        </button>
-
-                        <button
-                          id={`btn-download-again-${order.id}`}
-                          onClick={() => handleDownloadAgain(order, note)}
-                          className="py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-2xl transition flex items-center gap-1 text-xs font-bold"
-                          title="Download Clean PDF (No Watermark)"
-                        >
-                          <Download className="w-3.5 h-3.5 text-blue-600" />
-                          <span>PDF</span>
-                        </button>
-                      </div>
-
+                    <div className="flex items-center gap-2">
                       <button
+                        id={`btn-read-note-${note.id}`}
                         onClick={() => onOpenPreview(note)}
-                        className="w-full py-2 bg-linear-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 border border-blue-200/80 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                        className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        <span>AI Exam Summary & Cheat-Sheet</span>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Open Web Notes</span>
                       </button>
+
+                      {(() => {
+                        const downloadKey = order.id || note.id;
+                        const dlState = downloadStatusMap[downloadKey] || 'idle';
+
+                        if (dlState === 'loading') {
+                          return (
+                            <button
+                              id={`btn-download-again-${order.id}`}
+                              disabled
+                              className="p-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-2xl transition flex items-center gap-1.5 text-xs font-bold px-3.5 cursor-wait shadow-xs select-none"
+                              title="Generating and preparing PDF..."
+                            >
+                              <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                              <span className="text-[11px] font-semibold text-blue-800">Processing...</span>
+                            </button>
+                          );
+                        }
+
+                        if (dlState === 'success') {
+                          return (
+                            <button
+                              id={`btn-download-again-${order.id}`}
+                              className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-2xl transition flex items-center gap-1.5 text-xs font-bold px-3.5 shadow-xs select-none animate-in zoom-in-95 duration-200"
+                              title="PDF downloaded successfully!"
+                            >
+                              <div className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center animate-in zoom-in spin-in-45 duration-300 shadow-2xs">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </div>
+                              <span className="text-[11px] font-bold text-emerald-800">Downloaded!</span>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            id={`btn-download-again-${order.id}`}
+                            onClick={() => handleDownloadAgain(order, note)}
+                            className="p-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-2xl transition flex items-center gap-1.5 text-xs font-bold px-4 hover:border-slate-300 shadow-2xs group"
+                            title="Download Clean PDF (No Watermark)"
+                          >
+                            <Download className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+                            <span>PDF</span>
+                          </button>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -1233,20 +1393,61 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
                     )}
 
                     <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 ${
-                      isPending
+                      isAuthored
+                        ? note.status === 'approved'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : note.status === 'pending'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-rose-100 text-rose-800'
+                        : isPending
                         ? 'bg-amber-100 text-amber-800'
                         : isRejected
                         ? 'bg-rose-100 text-rose-800'
                         : 'bg-emerald-100 text-emerald-800'
                     }`}>
-                      {isPending ? <Clock className="w-3 h-3" /> : isRejected ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                      {isAuthored ? 'Creator' : `₹${order.amount} (${order.status === 'pending_verification' ? 'Pending' : order.status === 'rejected' ? 'Rejected' : 'Paid'})`}
+                      {isAuthored ? (
+                        <>
+                          {note.status === 'approved' && <CheckCircle2 className="w-3 h-3" />}
+                          {note.status === 'pending' && <Clock className="w-3 h-3" />}
+                          {note.status === 'changes_requested' && <AlertTriangle className="w-3 h-3" />}
+                          {note.status === 'rejected' && <AlertTriangle className="w-3 h-3" />}
+                          <span>
+                            Creator ({note.status === 'approved' ? 'Live' : note.status === 'pending' ? 'Pending Review' : note.status === 'changes_requested' ? 'Revisions' : 'Rejected'})
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          {isPending ? <Clock className="w-3 h-3" /> : isRejected ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                          <span>₹{order.amount} ({order.status === 'pending_verification' ? 'Pending' : order.status === 'rejected' ? 'Rejected' : 'Paid'})</span>
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>
               </div>
             );
           })}
+        </div>
+      ) : activeTab === 'authored' ? (
+        <div className="text-center py-12 bg-white rounded-3xl border border-purple-100 p-8 space-y-4 max-w-md mx-auto shadow-xs">
+          <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mx-auto">
+            <FileText className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-extrabold text-slate-900">
+            No Uploaded Notes Yet
+          </h3>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Upload your handwritten notes, formula sheets, or exam revision summaries. Academic Council moderators will review and approve them, and you will earn 80% royalty per download.
+          </p>
+          {onOpenUpload && (
+            <button
+              onClick={onOpenUpload}
+              className="px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 mx-auto shadow-xs"
+            >
+              <UploadCloud className="w-4 h-4" />
+              <span>Upload Notes for Approval</span>
+            </button>
+          )}
         </div>
       ) : allLibraryItems.length > 0 ? (
         /* No Match Filter State */
@@ -1312,15 +1513,6 @@ export const BuyerLibraryPage: React.FC<BuyerLibraryPageProps> = ({
             </div>
           </div>
         </div>
-      )}
-
-      {/* Payment Screenshot & Receipt Modal */}
-      {previewScreenshotOrder && (
-        <PaymentScreenshotModal
-          screenshotUrl={previewScreenshotOrder.paymentScreenshotUrl || null}
-          order={previewScreenshotOrder}
-          onClose={() => setPreviewScreenshotOrder(null)}
-        />
       )}
     </div>
   );

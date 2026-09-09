@@ -42,6 +42,7 @@ import { WithdrawModal } from './components/WithdrawModal';
 import { InfoModal, InfoModalType } from './components/InfoModal';
 import { ProfilePhotoUploadModal } from './components/ProfilePhotoUploadModal';
 import { syncNoteToFirestore, syncOrderToFirestore } from './utils/firebase';
+import { triggerNoteStatusEmailAlert } from './utils/emailAlertService';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -52,8 +53,6 @@ import { SellerDashboard } from './pages/SellerDashboard';
 import { BuyerLibraryPage } from './pages/BuyerLibraryPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AccountPage } from './pages/AccountPage';
-import { AiSummarizerPage } from './pages/AiSummarizerPage';
-import { VerifyEmailPage } from './pages/VerifyEmailPage';
 
 export default function App() {
   // App Core State
@@ -67,8 +66,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<string>('home');
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [browseFilters, setBrowseFilters] = useState<Partial<FilterState>>({});
-  const [initialVerifyToken, setInitialVerifyToken] = useState<string>('');
-  const [initialVerifyEmail, setInitialVerifyEmail] = useState<string>('');
+  const [libraryInitialTab, setLibraryInitialTab] = useState<'all' | 'unlocked' | 'authored' | 'payments' | 'starred'>('all');
 
   // Modals
   const [previewNote, setPreviewNote] = useState<NoteItem | null>(null);
@@ -103,30 +101,7 @@ export default function App() {
     showToast('🔒 Signed out successfully.');
   };
 
-  const handleDeleteAccount = (_reason?: string) => {
-    logoutUser();
-    setCurrentUserState(null);
-    refreshAppData();
-    setCurrentPage('home');
-    showToast('🗑️ Your account and personal data have been permanently deleted.');
-  };
-
   useEffect(() => {
-    // 0. Detect /verify-email path or token params in URL
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      const search = new URLSearchParams(window.location.search);
-      const tokenParam = search.get('token');
-      const emailParam = search.get('email');
-      const pageParam = search.get('page');
-
-      if (path === '/verify-email' || tokenParam || pageParam === 'verify-email') {
-        if (tokenParam) setInitialVerifyToken(tokenParam);
-        if (emailParam) setInitialVerifyEmail(emailParam);
-        setCurrentPage('verify-email');
-      }
-    }
-
     // 1. Preload local indexedDB files
     preloadNoteFiles().then(() => {
       setNotes(getStoredNotes());
@@ -136,11 +111,11 @@ export default function App() {
     const performInitialSync = async () => {
       try {
         const serverNotes = await fetchServerNotes();
-        if (Array.isArray(serverNotes)) {
+        if (serverNotes && serverNotes.length > 0) {
           setNotes(serverNotes);
         }
         const serverOrders = await fetchServerOrders();
-        if (Array.isArray(serverOrders)) {
+        if (serverOrders && serverOrders.length > 0) {
           setOrders(serverOrders);
         }
       } catch (err) {
@@ -153,13 +128,13 @@ export default function App() {
     // 3. Periodic real-time background poll (every 5s) so any note uploaded by any user is seen by all buyers instantly
     const syncInterval = setInterval(() => {
       fetchServerNotes().then((sn) => {
-        if (Array.isArray(sn)) {
+        if (sn && sn.length > 0) {
           setNotes(sn);
         }
       }).catch(() => {});
 
       fetchServerOrders().then((so) => {
-        if (Array.isArray(so)) {
+        if (so && so.length > 0) {
           setOrders(so);
         }
       }).catch(() => {});
@@ -168,10 +143,10 @@ export default function App() {
     // 4. Focus sync when switching tabs/browser windows
     const handleWindowFocus = () => {
       fetchServerNotes().then((sn) => {
-        if (Array.isArray(sn)) setNotes(sn);
+        if (sn && sn.length > 0) setNotes(sn);
       }).catch(() => {});
       fetchServerOrders().then((so) => {
-        if (Array.isArray(so)) setOrders(so);
+        if (so && so.length > 0) setOrders(so);
       }).catch(() => {});
     };
     window.addEventListener('focus', handleWindowFocus);
@@ -192,12 +167,6 @@ export default function App() {
       if (params.noteId) {
         setSelectedNoteId(params.noteId);
       }
-      if (params.token) {
-        setInitialVerifyToken(params.token);
-      }
-      if (params.email) {
-        setInitialVerifyEmail(params.email);
-      }
       if (params.university || params.branch || params.semester || params.subject || params.searchQuery) {
         setBrowseFilters({
           university: params.university,
@@ -208,20 +177,6 @@ export default function App() {
         });
       }
     }
-
-    // Access control: prevent unverified users from accessing protected sections
-    const protectedPages = ['seller-dashboard', 'library', 'buyer-library', 'account'];
-    if (
-      protectedPages.includes(page) &&
-      currentUser &&
-      !currentUser.isEmailVerified &&
-      currentUser.role !== 'admin'
-    ) {
-      showToast('⚠️ Please verify your student email address to unlock account features.');
-      setCurrentPage('verify-email');
-      return;
-    }
-
     setCurrentPage(page);
   };
 
@@ -247,21 +202,7 @@ export default function App() {
 
   // Note actions
   const handleBuyNote = (note: NoteItem) => {
-    if (currentUser && !currentUser.isEmailVerified && currentUser.role !== 'admin') {
-      showToast('⚠️ Please verify your email before purchasing notes.');
-      setCurrentPage('verify-email');
-      return;
-    }
     setPaymentNote(note);
-  };
-
-  const handleOpenUploadModal = () => {
-    if (currentUser && !currentUser.isEmailVerified && currentUser.role !== 'admin') {
-      showToast('⚠️ Please verify your email before publishing notes.');
-      setCurrentPage('verify-email');
-      return;
-    }
-    setIsUploadOpen(true);
   };
 
   const handlePaymentSuccess = async (order: PurchaseOrder) => {
@@ -280,15 +221,22 @@ export default function App() {
   };
 
   const handleUploadSuccess = async (newNote: NoteItem) => {
-    // 1. Immediately update local state
+    // 1. Immediately close modal so user is not confused
+    setIsUploadOpen(false);
+
+    // 2. Immediately update local state
     const currentNotes = getStoredNotes();
     const updated = [newNote, ...currentNotes.filter((n) => n.id !== newNote.id)];
     setNotes(updated);
     saveNotes(updated);
     refreshAppData();
-    showToast(`🎉 Note Published Live! Available instantly in the marketplace for all buyers.`);
 
-    // 2. Broadcast and persist to central server for all buyers worldwide
+    // 3. Immediately direct user to their Library section under My Uploaded Notes
+    setLibraryInitialTab('authored');
+    setCurrentPage('library');
+    showToast(`📝 Note submitted for approval! It is now in your Library where you can track moderation status and payment approvals.`);
+
+    // 4. Broadcast and persist to central server for all buyers worldwide
     try {
       await postServerNote(newNote);
       const serverUpdated = await fetchServerNotes();
@@ -299,7 +247,7 @@ export default function App() {
       console.warn('Server sync error on upload:', e);
     }
 
-    // 3. Sync to Firestore
+    // 5. Sync to Firestore
     try {
       await syncNoteToFirestore(newNote);
     } catch {
@@ -313,6 +261,7 @@ export default function App() {
   };
 
   const handleUpdateNoteStatus = (noteId: string, status: NoteItem['status'], feedback?: string) => {
+    const targetNote = notes.find((n) => n.id === noteId);
     const updated = notes.map((n) => {
       if (n.id === noteId) {
         return {
@@ -331,7 +280,24 @@ export default function App() {
     if (status === 'approved') {
       showToast(`✅ Note Approved and published to catalog!`);
     } else if (status === 'rejected' || status === 'changes_requested') {
-      showToast(`⚠️ Feedback updated for note submission.`);
+      const activeNote = targetNote || updated.find((n) => n.id === noteId);
+      const effectiveFeedback = feedback || activeNote?.adminFeedback || (status === 'rejected' ? 'Material violates original handwritten study note policy.' : 'Please re-upload higher resolution scan or clearly specify syllabus units.');
+      
+      if (activeNote) {
+        triggerNoteStatusEmailAlert({
+          note: { ...activeNote, status, adminFeedback: effectiveFeedback },
+          status,
+          adminFeedback: effectiveFeedback,
+          moderatorName: currentUser?.name ? `${currentUser.name} (${currentUser.role || 'Admin'})` : 'Raj Sambhaji Bhosale (Admin)',
+        }).then((email) => {
+          showToast(`📧 Email alert dispatched to ${email.toName} (${email.toEmail}) with feedback!`);
+        }).catch((err) => {
+          console.error('Failed to dispatch status email alert:', err);
+          showToast(`⚠️ Feedback updated for note submission.`);
+        });
+      } else {
+        showToast(`⚠️ Feedback updated for note submission.`);
+      }
     }
   };
 
@@ -374,12 +340,12 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-900 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-blue-200">
       {/* Toast Banner */}
       {toastMessage && (
         <div 
           id="global-toast-notification"
-          className="fixed bottom-5 right-5 z-50 bg-slate-900 dark:bg-slate-800 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 dark:border-slate-600 flex items-center gap-3 text-xs font-semibold animate-in slide-in-from-bottom-5 duration-200"
+          className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 text-xs font-semibold animate-in slide-in-from-bottom-5 duration-200"
         >
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
           <span>{toastMessage}</span>
@@ -391,7 +357,7 @@ export default function App() {
         currentUser={currentUser}
         onNavigate={handleNavigate}
         currentPage={currentPage}
-        onOpenUpload={handleOpenUploadModal}
+        onOpenUpload={() => setIsUploadOpen(true)}
         onOpenProfilePhoto={() => setIsProfilePhotoModalOpen(true)}
         onLogout={handleLogout}
         purchasedCount={purchasedNoteIds.length}
@@ -402,10 +368,10 @@ export default function App() {
         {currentPage === 'home' && (
           <HomePage
             onNavigate={handleNavigate}
-            onOpenUpload={handleOpenUploadModal}
+            onOpenUpload={() => setIsUploadOpen(true)}
             onPreviewNote={(note) => setPreviewNote(note)}
             onBuyNote={handleBuyNote}
-            featuredNotes={notes}
+            featuredNotes={notes.filter((n) => n.status === 'approved')}
             purchasedNoteIds={purchasedNoteIds}
           />
         )}
@@ -431,14 +397,7 @@ export default function App() {
             onOpenPreviewModal={(note) => setPreviewNote(note)}
             onRateNote={(note) => setRateNoteTarget(note)}
             onDeleteNote={handleDeleteNote}
-          />
-        )}
-
-        {currentPage === 'ai-summarizer' && (
-          <AiSummarizerPage
-            currentUser={currentUser}
-            onBrowseNotes={() => handleNavigate('browse')}
-            onOpenNote={(noteId) => handleNavigate('note-detail', { noteId })}
+            onUpdateNoteStatus={handleUpdateNoteStatus}
           />
         )}
 
@@ -457,32 +416,6 @@ export default function App() {
               }
             }}
             onNavigateHome={() => setCurrentPage('home')}
-            onNavigateToVerifyEmail={(targetEmail) => {
-              setInitialVerifyEmail(targetEmail);
-              setCurrentPage('verify-email');
-            }}
-          />
-        )}
-
-        {currentPage === 'verify-email' && (
-          <VerifyEmailPage
-            currentUser={currentUser}
-            initialToken={initialVerifyToken}
-            initialEmail={initialVerifyEmail}
-            onVerificationSuccess={(verifiedUser) => {
-              setCurrentUserState(verifiedUser);
-              refreshAppData();
-              showToast('🎉 Email verified successfully! Full NoteBridge access unlocked.');
-              if (verifiedUser.role === 'seller') {
-                setCurrentPage('seller-dashboard');
-              } else if (verifiedUser.role === 'admin') {
-                setCurrentPage('admin-dashboard');
-              } else {
-                setCurrentPage('home');
-              }
-            }}
-            onNavigateHome={() => setCurrentPage('home')}
-            onLogout={handleLogout}
           />
         )}
 
@@ -505,6 +438,7 @@ export default function App() {
             currentUser={currentUser}
             notes={notes}
             orders={orders}
+            initialTab={libraryInitialTab}
             onOpenPreview={(note) => setPreviewNote(note)}
             onOpenRate={(note) => setRateNoteTarget(note)}
             onBrowseNotes={() => handleNavigate('browse')}
@@ -545,7 +479,6 @@ export default function App() {
             onOpenWithdraw={() => setIsWithdrawOpen(true)}
             onNavigate={handleNavigate}
             onLogout={handleLogout}
-            onDeleteAccount={handleDeleteAccount}
             onUpdateUser={(updatedUser) => {
               setCurrentUserState(updatedUser);
               refreshAppData();

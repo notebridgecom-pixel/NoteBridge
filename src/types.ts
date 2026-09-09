@@ -13,10 +13,8 @@ export interface User {
   semester: number;
   role: UserRole;
   avatarUrl?: string;
-  isVerified?: boolean;
   isVerifiedSenior?: boolean;
   collegeIdPhoto?: string;
-  isEmailVerified?: boolean;
   rating?: number;
   totalRatingsCount?: number;
   walletBalance: number; // for sellers (in INR)
@@ -24,17 +22,6 @@ export interface User {
   isBlocked?: boolean;
   blockedReason?: string;
   createdAt: string;
-}
-
-export type OtpPurpose = 'signup' | 'login' | 'reset_password' | 'verify_email' | 'email_verification';
-
-export interface OtpRecord {
-  email: string;
-  code: string;
-  purpose: OtpPurpose;
-  expiresAt: number;
-  attempts: number;
-  lastSentAt: number;
 }
 
 export type SecurityLogAction =
@@ -320,7 +307,7 @@ export interface MockEmail {
   fromEmail: string;
   fromName: string;
   subject: string;
-  category: 'approval' | 'purchase' | 'sale_alert' | 'payout' | 'rejection';
+  category: 'approval' | 'purchase' | 'sale_alert' | 'payout' | 'rejection' | 'changes_requested';
   previewSnippet: string;
   htmlContent: string;
   createdAt: string;
@@ -333,51 +320,7 @@ export interface MockEmail {
     sellerShare?: number;
     upiTransactionId?: string;
     reason?: string;
+    adminFeedback?: string;
+    status?: ListingStatus;
   };
 }
-
-export type AiSummaryMode = 'comprehensive' | 'exam_revision' | 'formulas_theorems' | 'pyq_viva' | 'quiz';
-
-export interface AiSummaryQuizQuestion {
-  id: string;
-  question: string;
-  options: string[];
-  correctAnswerIndex: number;
-  explanation: string;
-}
-
-export interface AiDocumentSummaryResult {
-  id: string;
-  title: string;
-  subject?: string;
-  university?: string;
-  semester?: number | string;
-  mode: AiSummaryMode;
-  executiveSummary: string; // 2-3 sentence high-level overview
-  coreConcepts: {
-    topic: string;
-    description: string;
-    keyPoints: string[];
-  }[];
-  highYieldFormulasAndTheorems?: {
-    name: string;
-    formulaOrStatement: string;
-    explanation: string;
-  }[];
-  examProbableQuestions: {
-    question: string;
-    marks: number; // e.g. 5 or 10 marks
-    answerBulletPoints: string[];
-  }[];
-  keyTakeaways: string[];
-  quiz?: AiSummaryQuizQuestion[];
-  rawMarkdown?: string;
-  generatedAt: string;
-  sourceType: 'uploaded_doc' | 'pasted_notes' | 'marketplace_note';
-  sourceFileName?: string;
-  sourceNoteId?: string;
-  wordCount?: number;
-  model: string;
-  isFallback?: boolean;
-}
-

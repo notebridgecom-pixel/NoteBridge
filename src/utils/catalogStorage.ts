@@ -186,14 +186,6 @@ export const INITIAL_BRANCHES: AcademicBranch[] = [
 
   // 2. Vidyalankar Engineering College / BE / B.Tech Streams & Branches
   {
-    id: 'branch-btech-ece',
-    name: 'Electronics and Computer Engineering',
-    code: 'ECE',
-    courseId: 'course-btech',
-    collegeIds: ['col-vit'],
-    isActive: true,
-  },
-  {
     id: 'branch-btech-cmpn',
     name: 'Computer Engineering',
     code: 'CMPN',
@@ -450,101 +442,6 @@ export const INITIAL_SUBJECTS: AcademicSubject[] = [
     isActive: true,
   },
   {
-    id: 'subj-btech-ece-mpmc',
-    name: 'Microprocessors & Microcontrollers (8086 & ARM)',
-    code: 'ECC401',
-    courseId: 'course-btech',
-    branchId: 'branch-btech-ece',
-    semester: 4,
-    collegeId: 'col-vit',
-    units: [
-      'Unit 1: 8086 Architecture, Pin Diagram & Addressing Modes',
-      'Unit 2: Instruction Set, Assembly Programming & String Ops',
-      'Unit 3: Memory & I/O Interfacing (8255 PPI, 8254 Timer)',
-      'Unit 4: ARM Cortex-M Architecture & Thumb Instructions',
-      'Unit 5: Interrupts, Exceptions & Bus Protocols (SPI, I2C, UART)',
-      'Complete Units (Unit 1 to 5 - Full Syllabus & Solved PYQs)',
-    ],
-    academicYears: ['2024-2025', '2025-2026'],
-    isActive: true,
-  },
-  {
-    id: 'subj-btech-ece-coa',
-    name: 'Computer Organization & Architecture (COA)',
-    code: 'ECC402',
-    courseId: 'course-btech',
-    branchId: 'branch-btech-ece',
-    semester: 4,
-    collegeId: 'col-vit',
-    units: [
-      'Unit 1: CPU Architecture, Register Transfer Language & Micro-operations',
-      'Unit 2: Computer Arithmetic (Booth Algorithm, Restoring & Non-restoring)',
-      'Unit 3: Control Unit Design (Hardwired vs Microprogrammed)',
-      'Unit 4: Memory Organization (Cache Mapping, Virtual Memory, TLB)',
-      'Unit 5: Pipelining, Hazards, Multiprocessors & RISC/CISC',
-      'Complete Units (Unit 1 to 5 - Full Syllabus & Solved PYQs)',
-    ],
-    academicYears: ['2024-2025', '2025-2026'],
-    isActive: true,
-  },
-  {
-    id: 'subj-btech-ece-signals',
-    name: 'Signals & Systems',
-    code: 'ECC403',
-    courseId: 'course-btech',
-    branchId: 'branch-btech-ece',
-    semester: 4,
-    collegeId: 'col-vit',
-    units: [
-      'Unit 1: Continuous & Discrete Time Signals Classification',
-      'Unit 2: Linear Time-Invariant (LTI) Systems & Convolution',
-      'Unit 3: Fourier Series, Fourier Transform & Properties',
-      'Unit 4: Laplace Transform & Region of Convergence (ROC)',
-      'Unit 5: Z-Transform & Frequency Analysis of LTI Systems',
-      'Complete Units (Unit 1 to 5 - Full Syllabus & Numericals)',
-    ],
-    academicYears: ['2024-2025', '2025-2026'],
-    isActive: true,
-  },
-  {
-    id: 'subj-btech-ece-iot',
-    name: 'Embedded Systems & Internet of Things (IoT)',
-    code: 'ECC501',
-    courseId: 'course-btech',
-    branchId: 'branch-btech-ece',
-    semester: 5,
-    collegeId: 'col-vit',
-    units: [
-      'Unit 1: Embedded System Hardware Components & Sensors',
-      'Unit 2: RTOS Concepts (Tasks, Semaphores, IPC, Priority Inversion)',
-      'Unit 3: IoT Communication Protocols (MQTT, CoAP, HTTP, WebSockets)',
-      'Unit 4: Cloud Connectivity, Edge Computing & ESP32/Raspberry Pi Interfacing',
-      'Unit 5: IoT Security, Low Power Design & Smart System Case Studies',
-      'Complete Units (Unit 1 to 5 - Full Syllabus)',
-    ],
-    academicYears: ['2024-2025', '2025-2026'],
-    isActive: true,
-  },
-  {
-    id: 'subj-diploma-ece-bee',
-    name: 'Basic Electrical & Electronics Engineering (BEE)',
-    code: '22103',
-    courseId: 'course-diploma',
-    branchId: 'branch-diploma-ee',
-    semester: 2,
-    collegeId: 'col-vpoly',
-    units: [
-      'Unit 1: DC Circuits, Kirchhoff Laws & Network Theorems (Thevenin, Norton)',
-      'Unit 2: AC Fundamentals, Series & Parallel RLC Circuits, Phasors',
-      'Unit 3: Three-Phase Circuits & Transformer Operation',
-      'Unit 4: Semiconductor Diodes, Rectifiers & BJT Characteristics',
-      'Unit 5: Digital Logic Gates & Operational Amplifiers (Op-Amp 741)',
-      'Complete MSBTE I-Scheme Syllabus (Unit 1 to 5)',
-    ],
-    academicYears: ['2024-2025', '2025-2026'],
-    isActive: true,
-  },
-  {
     id: 'subj-diploma-civil-survey',
     name: 'Surveying & Advanced Geomatics',
     code: '22301',
@@ -588,43 +485,6 @@ export function getAcademicCatalog(): AcademicCatalog {
       localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(INITIAL_CATALOG));
       return INITIAL_CATALOG;
     }
-
-    // Remove any duplicate or legacy branch-diploma-ece
-    let hasUpdates = false;
-    const originalBranchCount = parsed.branches.length;
-    parsed.branches = parsed.branches.filter((b) => b.id !== 'branch-diploma-ece');
-    if (parsed.branches.length !== originalBranchCount) {
-      hasUpdates = true;
-    }
-
-    // Rename any legacy Electrical and Computer Engineering to Electronics and Computer Engineering
-    parsed.branches.forEach((b) => {
-      if (b.name === 'Electrical and Computer Engineering' || b.name === 'Electrical & Computer Engineering') {
-        b.name = 'Electronics and Computer Engineering';
-        hasUpdates = true;
-      }
-    });
-
-    // Merge any newly introduced initial branches (e.g. Electronics and Computer Engineering)
-    INITIAL_BRANCHES.forEach((ib) => {
-      if (!parsed.branches.some((b) => b.id === ib.id || (b.name.toLowerCase() === ib.name.toLowerCase() && b.courseId === ib.courseId))) {
-        parsed.branches.push(ib);
-        hasUpdates = true;
-      }
-    });
-
-    // Merge any newly introduced initial subjects
-    INITIAL_SUBJECTS.forEach((is) => {
-      if (!parsed.subjects.some((s) => s.id === is.id || s.code === is.code)) {
-        parsed.subjects.push(is);
-        hasUpdates = true;
-      }
-    });
-
-    if (hasUpdates) {
-      localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(parsed));
-    }
-
     return parsed;
   } catch (e) {
     console.error('Failed to load academic catalog', e);

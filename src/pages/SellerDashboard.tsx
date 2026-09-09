@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { User, NoteItem, PurchaseOrder, WithdrawalRequest } from '../types';
+import { User, NoteItem, PurchaseOrder, WithdrawalRequest, MockEmail } from '../types';
 import { BUSINESS_RULES } from '../utils/storage';
+import { getStoredEmailAlerts } from '../utils/emailAlertService';
 import { 
   Wallet, 
   UploadCloud, 
@@ -17,7 +18,9 @@ import {
   AlertCircle,
   HelpCircle,
   Camera,
-  Trash2
+  Trash2,
+  Mail,
+  X
 } from 'lucide-react';
 
 interface SellerDashboardProps {
@@ -45,6 +48,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'listings' | 'sales' | 'wallet'>('listings');
   const [deleteTarget, setDeleteTarget] = useState<NoteItem | null>(null);
+  const [selectedAlertEmail, setSelectedAlertEmail] = useState<MockEmail | null>(null);
 
   if (!currentUser) {
     return (
@@ -157,6 +161,100 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Action Required: Moderation Notices & Dispatched Email Alerts */}
+      {(() => {
+        const actionNotes = myNotes.filter((n) => n.status === 'changes_requested' || n.status === 'rejected');
+        if (actionNotes.length === 0) return null;
+
+        const storedAlerts = getStoredEmailAlerts();
+
+        return (
+          <div className="bg-gradient-to-br from-amber-50/90 via-orange-50/60 to-rose-50/80 border border-amber-200/80 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
+                  <AlertCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Academic Moderation Alerts ({actionNotes.length})
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    Email notices with administrator feedback have been dispatched to <strong className="text-slate-800">{currentUser?.email}</strong>.
+                  </p>
+                </div>
+              </div>
+              <span className="text-[11px] font-semibold text-amber-800 bg-amber-100/80 px-3 py-1 rounded-full self-start sm:self-auto flex items-center gap-1">
+                <Mail className="w-3 h-3 text-amber-700" />
+                Author Action Required
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              {actionNotes.map((note) => {
+                const isRevision = note.status === 'changes_requested';
+                const matchedEmail = storedAlerts.find(
+                  (a) => a.meta?.noteId === note.id || (a.toEmail && currentUser?.email && a.toEmail.toLowerCase() === currentUser.email.toLowerCase())
+                );
+
+                return (
+                  <div 
+                    key={note.id}
+                    className="bg-white rounded-2xl p-4 sm:p-5 border border-amber-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider ${
+                          isRevision ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-rose-100 text-rose-800 border border-rose-200'
+                        }`}>
+                          {isRevision ? '⚠️ Revision Requested' : '❌ Submission Rejected'}
+                        </span>
+                        <span className="text-xs font-bold text-slate-900">{note.title}</span>
+                        <span className="text-[11px] text-slate-500">({note.subject} • Sem {note.semester})</span>
+                      </div>
+
+                      {note.adminFeedback && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-[11px] text-slate-800">
+                            <Mail className="w-3 h-3 text-blue-600" />
+                            <span>Academic Council Feedback:</span>
+                          </div>
+                          <p className="italic text-slate-600 pl-4 border-l-2 border-amber-400">
+                            "{note.adminFeedback}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {matchedEmail && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAlertEmail(matchedEmail)}
+                          className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                          title="View the exact notification email delivered to your inbox"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>View Delivered Email</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onPreviewNote(note)}
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Inspect Pages</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 3 Metric Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -310,16 +408,39 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                           </span>
                         )}
                         {note.status === 'pending' && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-900 font-bold rounded-full text-[10px]" title="Under Academic Council Verification">
-                            <Clock className="w-3 h-3" />
-                            Pending Review
-                          </span>
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-900 font-bold rounded-full text-[10px]" title="Under Academic Council Verification">
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              Pending Review
+                            </span>
+                            <p className="text-[10px] text-slate-400 font-medium">Under moderation</p>
+                          </div>
+                        )}
+                        {note.status === 'changes_requested' && (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-900 font-bold rounded-full text-[10px]" title={note.adminFeedback || 'Revisions requested'}>
+                              <AlertCircle className="w-3 h-3 text-orange-600" />
+                              Revision Requested
+                            </span>
+                            {note.adminFeedback && (
+                              <p className="text-[10px] text-orange-700 max-w-[160px] truncate" title={note.adminFeedback}>
+                                {note.adminFeedback}
+                              </p>
+                            )}
+                          </div>
                         )}
                         {note.status === 'rejected' && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-rose-100 text-rose-800 font-bold rounded-full text-[10px]" title={note.adminFeedback || 'Copyright or quality issue'}>
-                            <XCircle className="w-3 h-3" />
-                            Rejected
-                          </span>
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-rose-100 text-rose-800 font-bold rounded-full text-[10px]" title={note.adminFeedback || 'Copyright or quality issue'}>
+                              <XCircle className="w-3 h-3" />
+                              Rejected
+                            </span>
+                            {note.adminFeedback && (
+                              <p className="text-[10px] text-rose-600 max-w-[160px] truncate" title={note.adminFeedback}>
+                                {note.adminFeedback}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="p-4 font-semibold text-slate-800">
@@ -512,6 +633,63 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shadow-sm transition"
               >
                 Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Email Alert Preview Modal */}
+      {selectedAlertEmail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600/30 border border-blue-500/40 text-blue-400 flex items-center justify-center font-bold">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-white leading-tight">
+                    Dispatched Notification Email
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    To: {selectedAlertEmail.toName} ({selectedAlertEmail.toEmail})
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedAlertEmail(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Email Metadata Details */}
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-3.5 text-xs text-slate-600 space-y-1">
+              <div><strong className="text-slate-800">From:</strong> {selectedAlertEmail.fromName} &lt;{selectedAlertEmail.fromEmail}&gt;</div>
+              <div><strong className="text-slate-800">Subject:</strong> {selectedAlertEmail.subject}</div>
+              <div><strong className="text-slate-800">Date:</strong> {new Date(selectedAlertEmail.createdAt).toLocaleString()}</div>
+            </div>
+
+            {/* Render HTML content safely inside styled container */}
+            <div className="p-6 overflow-y-auto max-h-[60vh] bg-slate-100/50">
+              <div 
+                className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200"
+                dangerouslySetInnerHTML={{ __html: selectedAlertEmail.htmlContent }}
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-white border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedAlertEmail(null)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition"
+              >
+                Close Email Viewer
               </button>
             </div>
           </div>
